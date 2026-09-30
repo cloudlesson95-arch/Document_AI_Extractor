@@ -1,0 +1,21 @@
+# Web API
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Validation and configuration
+pydantic
+pydantic-settings
+python-dotenv
+
+# HTTP and secret storage
+requests
+keyring
+
+# Google Gemini
+google-genai
+
+# Testing
+pytest
+pytest-asyncio
+httpx

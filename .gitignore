@@ -1,0 +1,12 @@
+.env
+.vscode
+__pycache__/
+*.pyc
+.venv/
+.plan.md
+.local/
+logs/
+*.log
+*.db
+uploads/
+data/
