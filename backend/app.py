@@ -20,6 +20,10 @@ def main():
     get_secret_parser = subparsers.add_parser("get-secret", help="Get a secret from keyring / env")
     get_secret_parser.add_argument("name", help="Secret name (e.g. GOOGLE_API_KEY)")
 
+    # Extraction commands
+    extract_parser = subparsers.add_parser("extract", help="Extract fields from a receipt or invoice file")
+    extract_parser.add_argument("path", help="Path to a JPEG, PNG, WebP or PDF file")
+
     args = parser.parse_args()
 
     if args.command == "serve":
@@ -50,6 +54,21 @@ def main():
             print(f"{args.name}: {masked}")
         else:
             print(f"Secret '{args.name}' not found.")
+
+    elif args.command == "extract":
+        import sys
+        from pathlib import Path
+        from .extraction.base import SUPPORTED_MIME_TYPES, ExtractionError, detect_mime_type
+        from .extraction.direct_api import GeminiVisionExtractor
+        content = Path(args.path).read_bytes()
+        mime_type = detect_mime_type(content)
+        if mime_type is None:
+            sys.exit(f"Unsupported file type: expected one of {sorted(SUPPORTED_MIME_TYPES)}")
+        try:
+            receipt = GeminiVisionExtractor().extract(content, mime_type)
+        except ExtractionError as e:
+            sys.exit(f"Extraction failed: {e}")
+        print(receipt.model_dump_json(indent=2))
 
     else:
         parser.print_help()

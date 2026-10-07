@@ -5,6 +5,26 @@ from .schema import ExtractedReceipt
 SUPPORTED_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "application/pdf"})
 
 
+def detect_mime_type(content: bytes) -> str | None:
+    """Identify a supported file type from its first bytes; file names and browser-sent types can lie.
+
+    Args:
+        content: Raw file bytes.
+
+    Returns:
+        str | None: One of SUPPORTED_MIME_TYPES, or None if the file isn't one of them.
+    """
+    if content.startswith(b"%PDF-"):
+        return "application/pdf"
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 class ExtractionError(Exception):
     """The model call failed, or its output didn't match ExtractedReceipt."""
 

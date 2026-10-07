@@ -4,7 +4,7 @@ Upload a photo or PDF of a receipt or invoice, and a vision-capable model extrac
 
 Storage, the database and the extraction model each sit behind a small interface, and one setting, `CLOUD_PROVIDER`, selects the implementation: `local`, `aws` or `azure`.
 
-> 🚧 Work in progress: Phase 0 (scaffold) is done; the rest is planned.
+> 🚧 Work in progress: Phases 0–1 (scaffold, extraction) are done; the rest is planned.
 
 ## Architecture
 
@@ -24,7 +24,7 @@ Next.js (web/) ──HTTP──▶ FastAPI (backend/)
 | Phase | Status | What it adds |
 |---|---|---|
 | 0. Scaffold | ✅ Done | FastAPI app with `/health` and CORS, a CLI, pluggable secrets (`SECRET_BACKEND`), and a Next.js frontend that checks the backend from the browser |
-| 1. Extraction | Planned | `ExtractedReceipt` schema and a Gemini vision extractor that raises when the model's output fails validation |
+| 1. Extraction | ✅ Done | `ExtractedReceipt` schema, a Gemini vision extractor that raises when the model's output fails validation, and an `extract` CLI command |
 | 2. Storage | Planned | `FileStorage` and `RecordStore` with local, AWS and Azure implementations, selected in `backend/providers.py` |
 | 3. API | Planned | `POST /receipts` (upload and extract), `GET /receipts` (search and filter), `GET /receipts/{id}`, `PATCH /receipts/{id}` (corrections) |
 | 4. Frontend | Planned | Upload page, receipts table, and a review page showing the original next to the editable fields |
@@ -45,7 +45,7 @@ python -m backend.app set-secret GOOGLE_API_KEY   # stored in the OS keyring; pr
 python -m backend.app serve --reload              # http://127.0.0.1:8000/docs
 ```
 
-Run the backend from the repo root as a module (`python -m backend.app`), not as a script. Other commands: `get-secret <name>` prints a masked value; `serve --host <host> --port <port>`.
+Run the backend from the repo root as a module (`python -m backend.app`), not as a script. Other commands: `extract <file>` prints the fields extracted from a JPEG, PNG, WebP or PDF as JSON; `get-secret <name>` prints a masked value; `serve --host <host> --port <port>`.
 
 ### Frontend
 
@@ -62,7 +62,8 @@ Open `http://localhost:3000`, not `127.0.0.1:3000`: the backend only accepts bro
 ### Test
 
 ```powershell
-python -m pytest tests -v    # backend
+python -m pytest tests -v    # backend (the live Gemini test is skipped)
+$env:RUN_LIVE_TESTS="1"; python -m pytest tests/test_extraction_live.py -v   # calls the real Gemini API
 cd web
 npm run lint                 # frontend lint
 npm run build                # frontend type check and production build
@@ -79,11 +80,13 @@ Every setting has a working local default. The backend reads environment variabl
 | `KEYRING_SERVICE_NAME` | `document-ai-extractor` | Keyring entry that `set-secret` writes to |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the API |
 | `LOG_LEVEL`, `LOG_TO_FILE` | `INFO`, `true` | Logs go to the console and `logs/app.log` |
+| `EXTRACTION_TIMEOUT_SECONDS` | `60` | Timeout for one model call; failed calls are retried twice |
 | `NEXT_PUBLIC_API_URL` (frontend) | `http://127.0.0.1:8000` | Backend URL, baked into the frontend at build time |
 
 ## Known limitations
 
 - The API has no authentication. CORS only controls which websites can call it from a browser, not who can call it; `serve` listens on `127.0.0.1` by default for that reason.
+- On the Gemini API free tier, Google may use submitted documents to improve its products. Don't extract receipts that show personal data such as card numbers, names or addresses.
 
 ## License
 

@@ -33,3 +33,6 @@ PREFERRED_MODELS = {
     "groq": ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
     "gemini": ["gemini-2.5-flash", "gemini-3.5-flash"],
 }
+
+# Extraction configuration
+EXTRACTION_TIMEOUT_SECONDS = int(os.getenv("EXTRACTION_TIMEOUT_SECONDS", "60"))  # per model call; failed calls are retried twice
