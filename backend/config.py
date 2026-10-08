@@ -36,3 +36,7 @@ PREFERRED_MODELS = {
 
 # Extraction configuration
 EXTRACTION_TIMEOUT_SECONDS = int(os.getenv("EXTRACTION_TIMEOUT_SECONDS", "60"))  # per model call; failed calls are retried twice
+
+# Local storage (CLOUD_PROVIDER=local); directories are created on first use, never at import
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "uploads"))
+SQLITE_PATH = Path(os.getenv("SQLITE_PATH", BASE_DIR / "data" / "receipts.db"))
