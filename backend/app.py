@@ -59,13 +59,13 @@ def main():
         import sys
         from pathlib import Path
         from .extraction.base import SUPPORTED_MIME_TYPES, ExtractionError, detect_mime_type
-        from .extraction.direct_api import GeminiVisionExtractor
+        from .providers import get_vision_extractor
         content = Path(args.path).read_bytes()
         mime_type = detect_mime_type(content)
         if mime_type is None:
             sys.exit(f"Unsupported file type: expected one of {sorted(SUPPORTED_MIME_TYPES)}")
         try:
-            receipt = GeminiVisionExtractor().extract(content, mime_type)
+            receipt = get_vision_extractor().extract(content, mime_type)
         except ExtractionError as e:
             sys.exit(f"Extraction failed: {e}")
         print(receipt.model_dump_json(indent=2))

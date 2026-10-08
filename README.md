@@ -4,7 +4,7 @@ Upload a photo or PDF of a receipt or invoice, and a vision-capable model extrac
 
 Storage, the database and the extraction model each sit behind a small interface, and one setting, `CLOUD_PROVIDER`, selects the implementation: `local`, `aws` or `azure`.
 
-> 🚧 Work in progress: Phases 0–1 (scaffold, extraction) are done; the rest is planned.
+> 🚧 Work in progress: Phases 0–2 (scaffold, extraction, storage) are done; the rest is planned.
 
 ## Architecture
 
@@ -25,12 +25,12 @@ Next.js (web/) ──HTTP──▶ FastAPI (backend/)
 |---|---|---|
 | 0. Scaffold | ✅ Done | FastAPI app with `/health` and CORS, a CLI, pluggable secrets (`SECRET_BACKEND`), and a Next.js frontend that checks the backend from the browser |
 | 1. Extraction | ✅ Done | `ExtractedReceipt` schema, a Gemini vision extractor that raises when the model's output fails validation, and an `extract` CLI command |
-| 2. Storage | Planned | `FileStorage` and `RecordStore` with local, AWS and Azure implementations, selected in `backend/providers.py` |
+| 2. Storage | ✅ Done | `FileStorage` (disk) and `RecordStore` (SQLite) behind interfaces with shared contract tests; `backend/providers.py` picks the implementations from `CLOUD_PROVIDER` |
 | 3. API | Planned | `POST /receipts` (upload and extract), `GET /receipts` (search and filter), `GET /receipts/{id}`, `PATCH /receipts/{id}` (corrections) |
 | 4. Frontend | Planned | Upload page, receipts table, and a review page showing the original next to the editable fields |
 | 5. Categorization | Optional | A small classical-ML classifier for expense categories |
-| 6. AWS | Planned | Lambda (container image) behind a Function URL, S3, DynamoDB, Bedrock |
-| 7. Azure | Planned | The same image on Container Apps with Blob Storage, Table Storage and Azure OpenAI |
+| 6. AWS | Planned | S3, DynamoDB and Bedrock implementations; Lambda (container image) behind a Function URL |
+| 7. Azure | Planned | Blob Storage, Table Storage and Azure OpenAI implementations; the same image on Container Apps |
 
 ## Local setup
 
@@ -75,12 +75,13 @@ Every setting has a working local default. The backend reads environment variabl
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CLOUD_PROVIDER` | `local` | `local`, `aws` or `azure`; any other value stops the backend at startup |
+| `CLOUD_PROVIDER` | `local` | `local`, `aws` or `azure` (`aws` and `azure` arrive in Phases 6–7); any other value stops the backend at startup |
 | `SECRET_BACKEND` | `keyring` | `keyring`, `env`, `azure_keyvault` or `aws_secretsmanager`; each falls back to environment variables |
 | `KEYRING_SERVICE_NAME` | `document-ai-extractor` | Keyring entry that `set-secret` writes to |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the API |
 | `LOG_LEVEL`, `LOG_TO_FILE` | `INFO`, `true` | Logs go to the console and `logs/app.log` |
 | `EXTRACTION_TIMEOUT_SECONDS` | `60` | Timeout for one model call; failed calls are retried twice |
+| `UPLOAD_DIR`, `SQLITE_PATH` | `<repo>/uploads`, `<repo>/data/receipts.db` | Where the `local` provider keeps uploaded files and records |
 | `NEXT_PUBLIC_API_URL` (frontend) | `http://127.0.0.1:8000` | Backend URL, baked into the frontend at build time |
 
 ## Known limitations
