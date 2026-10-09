@@ -4,7 +4,7 @@ Upload a photo or PDF of a receipt or invoice, and a vision-capable model extrac
 
 Storage, the database and the extraction model each sit behind a small interface, and one setting, `CLOUD_PROVIDER`, selects the implementation: `local`, `aws` or `azure`.
 
-> 🚧 Work in progress: Phases 0–3 (scaffold, extraction, storage, API) are done; the rest is planned.
+> 🚧 Work in progress: Phases 0–4 (scaffold, extraction, storage, API, frontend) are done; the rest is planned.
 
 ## Architecture
 
@@ -27,7 +27,7 @@ Next.js (web/) ──HTTP──▶ FastAPI (backend/)
 | 1. Extraction | ✅ Done | `ExtractedReceipt` schema, a Gemini vision extractor that raises when the model's output fails validation, and an `extract` CLI command |
 | 2. Storage | ✅ Done | `FileStorage` (disk) and `RecordStore` (SQLite) behind interfaces with shared contract tests; `backend/providers.py` picks the implementations from `CLOUD_PROVIDER` |
 | 3. API | ✅ Done | Upload and extract, search and filter, the original file for review, and corrections that record whether the model got something wrong |
-| 4. Frontend | Planned | Upload page, receipts table, and a review page showing the original next to the editable fields |
+| 4. Frontend | ✅ Done | An upload page that shrinks photos in the browser, a searchable receipts table, and a review page showing the original next to the editable fields |
 | 5. Categorization | Optional | A small classical-ML classifier for expense categories |
 | 6. AWS | Planned | S3, DynamoDB and Bedrock implementations; Lambda (container image) behind a Function URL |
 | 7. Azure | Planned | Blob Storage, Table Storage and Azure OpenAI implementations; the same image on Container Apps |
@@ -79,6 +79,8 @@ The backend URL defaults to `http://127.0.0.1:8000`; to change it, copy `web/.en
 
 Open `http://localhost:3000`, not `127.0.0.1:3000`: the backend only accepts browser requests from the origins in `CORS_ALLOW_ORIGINS`. The home page shows a green status line when it can reach the backend.
 
+`/upload` extracts a receipt, `/receipts` lists and searches them, and `/receipts/<id>` shows the original next to the fields to correct. Before uploading, the browser redraws photos as JPEGs of at most 2000 px, so phone photos fit under the upload cap; PDFs are sent as they are.
+
 ### Test
 
 ```powershell
@@ -103,7 +105,7 @@ Every setting has a working local default. The backend reads environment variabl
 | `APP_REVISION` | empty | Git SHA of the deployed build, shown in `/health`; the deployment sets it |
 | `LOG_LEVEL`, `LOG_TO_FILE` | `INFO`, `true` | Logs go to the console and `logs/app.log` |
 | `EXTRACTION_TIMEOUT_SECONDS` | `60` | Timeout for one model call; failed calls are retried twice |
-| `MAX_UPLOAD_MB` | `4` | Larger uploads get a 413, on every provider; this keeps requests under Lambda's 6 MB cap |
+| `MAX_UPLOAD_MB` | `4` | Larger uploads get a 413, on every provider; this keeps requests under Lambda's 6 MB cap. The frontend refuses larger files before sending them, so change `MAX_UPLOAD_MB` in `web/src/lib/upload.ts` with it |
 | `UPLOAD_RATE_LIMIT_PER_MINUTE` | `10` | Uploads that reach the model, per minute for the whole process; more get a 429 with `Retry-After` |
 | `UPLOAD_DIR`, `SQLITE_PATH` | `<repo>/uploads`, `<repo>/data/receipts.db` | Where the `local` provider keeps uploaded files and records |
 | `NEXT_PUBLIC_API_URL` (frontend) | `http://127.0.0.1:8000` | Backend URL, baked into the frontend at build time |
