@@ -12,18 +12,7 @@ from backend.storage.local import LocalFileStorage
 GETTERS = [providers.get_file_storage, providers.get_record_store, providers.get_vision_extractor]
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-
-@pytest.fixture(autouse=True)
-def local_provider(monkeypatch, tmp_path):
-    """Use the local provider with temporary paths, and forget objects built by other tests."""
-    monkeypatch.setattr(providers, "CLOUD_PROVIDER", "local")
-    monkeypatch.setattr(providers, "UPLOAD_DIR", tmp_path / "uploads")
-    monkeypatch.setattr(providers, "SQLITE_PATH", tmp_path / "receipts.db")
-    for getter in GETTERS:
-        getter.cache_clear()
-    yield
-    for getter in GETTERS:
-        getter.cache_clear()
+pytestmark = pytest.mark.usefixtures("local_providers")  # from conftest.py
 
 
 class FakeGeminiExtractor:

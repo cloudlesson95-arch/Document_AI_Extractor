@@ -8,8 +8,9 @@ from pydantic import BaseModel, Field, WithJsonSchema, field_validator
 # Money and quantities are exact Decimals in Python but a plain number in the JSON schema
 # the model sees: Pydantic's default Decimal schema adds a string with a regex pattern, which
 # Gemini's structured output doesn't support. Constraints such as gt/ge on an Amount are still
-# enforced by Pydantic; they just aren't sent to the model.
-Amount = Annotated[Decimal, WithJsonSchema({"type": "number"})]
+# enforced by Pydantic; they just aren't sent to the model. Only the validation (input) schema is
+# replaced: API responses carry Decimals as strings, and their documented schema must say so.
+Amount = Annotated[Decimal, WithJsonSchema({"type": "number"}, mode="validation")]
 
 
 class LineItem(BaseModel):

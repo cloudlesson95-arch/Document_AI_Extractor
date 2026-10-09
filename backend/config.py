@@ -43,6 +43,11 @@ PREFERRED_MODELS = {
 # Extraction configuration
 EXTRACTION_TIMEOUT_SECONDS = int(os.getenv("EXTRACTION_TIMEOUT_SECONDS", "60"))  # per model call; failed calls are retried twice
 
+# Uploads (POST /receipts). The size cap is the same for every provider: Lambda caps a request at 6 MB and
+# base64-encodes binary bodies inside that. The rate limit counts model calls for the whole process.
+MAX_UPLOAD_MB = float(os.getenv("MAX_UPLOAD_MB", "4"))
+UPLOAD_RATE_LIMIT_PER_MINUTE = int(os.getenv("UPLOAD_RATE_LIMIT_PER_MINUTE", "10"))
+
 # Local storage (CLOUD_PROVIDER=local); directories are created on first use, never at import
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "uploads"))
 SQLITE_PATH = Path(os.getenv("SQLITE_PATH", BASE_DIR / "data" / "receipts.db"))

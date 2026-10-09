@@ -1,4 +1,5 @@
 .env
+.ai
 .vscode
 __pycache__/
 *.pyc
