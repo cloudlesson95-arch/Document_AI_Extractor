@@ -29,10 +29,16 @@ def setup_logging(name: str = __name__) -> logging.Logger:
 
     # File handler
     if LOG_TO_FILE:
-        log_dir = os.path.dirname(LOG_FILE_PATH)
-        if log_dir:
-            os.makedirs(log_dir, exist_ok=True)
-        file_handler = logging.FileHandler(LOG_FILE_PATH, encoding="utf-8")
+        try:
+            log_dir = os.path.dirname(LOG_FILE_PATH)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+            file_handler = logging.FileHandler(LOG_FILE_PATH, encoding="utf-8")
+        except OSError:
+            # Fallback for read-only filesystems (e.g., AWS Lambda)
+            tmp_log = os.path.join("/tmp", "app.log")
+            file_handler = logging.FileHandler(tmp_log, encoding="utf-8")
+            
         file_handler.setLevel(getattr(logging, LOG_LEVEL.upper()))
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
@@ -52,7 +58,10 @@ def setup_logging(name: str = __name__) -> logging.Logger:
                 lib_logger.addHandler(console_handler)
             
             if LOG_TO_FILE:
-                file_handler = logging.FileHandler(LOG_FILE_PATH, encoding="utf-8")
+                try:
+                    file_handler = logging.FileHandler(LOG_FILE_PATH, encoding="utf-8")
+                except OSError:
+                    file_handler = logging.FileHandler(os.path.join("/tmp", "app.log"), encoding="utf-8")
                 file_handler.setLevel(getattr(logging, LOG_LEVEL.upper()))
                 file_handler.setFormatter(formatter)
                 lib_logger.addHandler(file_handler)

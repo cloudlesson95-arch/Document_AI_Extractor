@@ -1,0 +1,19 @@
+# Direct dependencies with loose version ranges. requirements.txt is the lock compiled from this file:
+#   uv pip compile requirements.in --universal --python-version 3.13 -o requirements.txt
+
+# Web API
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Validation and configuration
+pydantic
+python-dotenv
+
+# HTTP and secret storage
+requests
+httpx
+keyring
+
+# Google Gemini
+google-genai

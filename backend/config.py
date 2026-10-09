@@ -11,8 +11,14 @@ CLOUD_PROVIDER = os.getenv("CLOUD_PROVIDER", "local").lower()  # "local", "aws",
 if CLOUD_PROVIDER not in ("local", "aws", "azure"):
     raise ValueError(f"CLOUD_PROVIDER must be 'local', 'aws' or 'azure', got '{CLOUD_PROVIDER}'")
 
-# API configuration -- browser origins allowed to call the API (comma-separated)
-CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
+# Browser origins allowed to call the API (the web frontend), separated by spaces: the Lambda "Variables={...}"
+# shorthand splits on commas. Empty allows none. Trailing slashes are dropped (browsers send none).
+CORS_ALLOW_ORIGINS = [origin.rstrip("/") for origin in os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:3000").split()]
+if any("," in origin for origin in CORS_ALLOW_ORIGINS):
+    raise ValueError(f"CORS_ALLOW_ORIGINS must be separated by spaces, not commas, got {CORS_ALLOW_ORIGINS}")
+
+# Git SHA of the deployed build (set by the deployment; empty locally), shown in /health
+APP_REVISION = os.getenv("APP_REVISION", "")
 
 # Logging configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")  # DEBUG, INFO, WARNING, ERROR, CRITICAL
