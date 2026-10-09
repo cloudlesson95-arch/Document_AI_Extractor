@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_URL, getHealth, type Health } from "@/lib/api";
+import { api, API_URL, ApiError, type Health } from "@/lib/api";
 
 // Calls the backend from the browser, so a green status also proves CORS is configured
 export default function BackendStatus() {
@@ -9,9 +9,9 @@ export default function BackendStatus() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getHealth()
+    api.health()
       .then(setHealth)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.detail : String(e)));
   }, []);
 
   if (error) {
