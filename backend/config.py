@@ -47,7 +47,15 @@ EXTRACTION_TIMEOUT_SECONDS = int(os.getenv("EXTRACTION_TIMEOUT_SECONDS", "60")) 
 # base64-encodes binary bodies inside that. The rate limit counts model calls for the whole process.
 MAX_UPLOAD_MB = float(os.getenv("MAX_UPLOAD_MB", "4"))
 UPLOAD_RATE_LIMIT_PER_MINUTE = int(os.getenv("UPLOAD_RATE_LIMIT_PER_MINUTE", "10"))
+# Model calls per UTC day, counted in storage every instance shares, so it bounds a deployment's daily model cost
+UPLOAD_DAILY_LIMIT = int(os.getenv("UPLOAD_DAILY_LIMIT", "50"))
 
 # Local storage (CLOUD_PROVIDER=local); directories are created on first use, never at import
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "uploads"))
 SQLITE_PATH = Path(os.getenv("SQLITE_PATH", BASE_DIR / "data" / "receipts.db"))
+
+# AWS storage (CLOUD_PROVIDER=aws). Credentials and the region come from boto3's usual sources: the Lambda role and
+# AWS_REGION when deployed. The Gemini key is read with SECRET_BACKEND=aws_secretsmanager.
+S3_BUCKET = os.getenv("S3_BUCKET", "")
+DYNAMODB_RECORDS_TABLE = os.getenv("DYNAMODB_RECORDS_TABLE", "")
+DYNAMODB_QUOTA_TABLE = os.getenv("DYNAMODB_QUOTA_TABLE", "")

@@ -1,3 +1,4 @@
+import datetime
 import math
 import uuid
 from typing import Annotated, Any
@@ -12,7 +13,7 @@ from .config import APP_REVISION, CLOUD_PROVIDER, CORS_ALLOW_ORIGINS, MAX_UPLOAD
 from .extraction.base import SUPPORTED_MIME_TYPES, ExtractionError, detect_mime_type
 from .extraction.schema import ExtractedReceipt
 from .logging_config import setup_logging
-from .providers import get_file_storage, get_record_store, get_vision_extractor
+from .providers import get_file_storage, get_record_store, get_upload_quota, get_vision_extractor
 from .records.base import ReceiptRecord, RecordFilters, apply_update
 from .utils.rate_limit import RateLimiter
 
@@ -67,6 +68,10 @@ def _response(record: ReceiptRecord) -> ReceiptResponse:
     return ReceiptResponse(**record.model_dump(), file_url=f"/receipts/{record.id}/file")
 
 
+def _utc_now() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 def _get_record(record_id: str) -> ReceiptRecord:
     record = get_record_store().get(record_id)
     if record is None:
@@ -84,7 +89,7 @@ def create_receipt(file: Annotated[UploadFile, File(description="A JPEG, PNG, We
     """Extract the fields of an uploaded receipt or invoice, then store the file and the record.
 
     Nothing is stored when the answer is 413 (over MAX_UPLOAD_MB), 415 (unsupported type), 429 (over the
-    upload rate limit; see Retry-After) or 502 (the model's extraction failed).
+    upload rate limit or the daily limit; see Retry-After) or 502 (the model's extraction failed).
     """
     content = file.file.read(MAX_UPLOAD_BYTES + 1)  # one byte over the cap is enough to refuse it
     if len(content) > MAX_UPLOAD_BYTES:
@@ -98,6 +103,13 @@ def create_receipt(file: Annotated[UploadFile, File(description="A JPEG, PNG, We
     if retry_after:
         raise HTTPException(status_code=429, detail="Too many uploads, try again shortly",
                             headers={"Retry-After": str(math.ceil(retry_after))})
+    # The rate limit is per process; the daily limit is shared by every instance, so it bounds the model's daily cost.
+    # Checked last, so uploads refused above don't use it up; a failed extraction does, since the model was called.
+    quota, now = get_upload_quota(), _utc_now()
+    if not quota.try_acquire(now.date()):
+        midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(), datetime.timezone.utc)
+        raise HTTPException(status_code=429, detail=f"Today's limit of {quota.limit} uploads is reached, try again later",
+                            headers={"Retry-After": str(math.ceil((midnight - now).total_seconds()))})
 
     # Extract before storing anything, so a failed extraction leaves no orphaned file
     try:

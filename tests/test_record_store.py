@@ -3,18 +3,22 @@ import datetime
 import sqlite3
 from decimal import Decimal
 
+import boto3
 import pytest
 from pydantic import ValidationError
 
 from backend.records.base import ReceiptRecord, RecordFilters, RecordStore
+from backend.records.dynamo import DynamoDBRecordStore
 from backend.records.local import SQLiteRecordStore
 
 
-@pytest.fixture(params=["sqlite"])
+@pytest.fixture(params=["sqlite", "dynamodb"])
 def store(request, tmp_path) -> RecordStore:
-    # Every RecordStore must pass the tests that use this fixture; Phases 6-7 add DynamoDB and Table Storage here
+    # Every RecordStore must pass the tests that use this fixture; Phase 7 adds Table Storage here
     if request.param == "sqlite":
         return SQLiteRecordStore(tmp_path / "receipts.db")
+    if request.param == "dynamodb":
+        return DynamoDBRecordStore(request.getfixturevalue("records_table"))  # in moto's DynamoDB, from conftest.py
 
 
 def make_record(**overrides) -> ReceiptRecord:
@@ -186,3 +190,16 @@ def test_sqlite_records_saved_before_categories_existed_need_no_migration(tmp_pa
     assert store.search(RecordFilters(category="Meals")) == []
     store.update(record.id, {"category": "Meals"})
     assert vendors(store.search(RecordFilters(category="Meals"))) == ["Cafe Uno"]
+
+
+def test_dynamodb_items_hold_the_record_as_json_and_copies_of_its_set_filter_fields(records_table):
+    record = make_record(vendor="Café Uno", total_amount=Decimal("12345678901234567.01"), date=None, category="Meals")
+    DynamoDBRecordStore(records_table).put(record)
+
+    item = boto3.client("dynamodb").get_item(TableName=records_table, Key={"id": {"S": record.id}})["Item"]
+
+    assert ReceiptRecord.model_validate_json(item["data"]["S"]) == record
+    assert item["vendor_search"] == {"S": "café uno"}
+    assert item["total_amount"] == {"N": "12345678901234567.01"}  # exact, where a float would round it
+    assert item["category"] == {"S": "Meals"}
+    assert "date" not in item  # null fields are left out, so no filter on them matches

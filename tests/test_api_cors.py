@@ -51,11 +51,11 @@ def test_unexpected_errors_answer_500_with_cors_headers(monkeypatch):
 
 
 def test_a_cloud_provider_that_isnt_implemented_answers_503_with_cors_headers(monkeypatch):
-    """Verify an aws or azure deployment before Phase 6 or 7 says why it can't serve receipts."""
-    monkeypatch.setattr(providers, "CLOUD_PROVIDER", "aws")
+    """Verify an azure deployment before Phase 7 says why it can't serve receipts."""
+    monkeypatch.setattr(providers, "CLOUD_PROVIDER", "azure")
 
     response = TestClient(api.app).get("/receipts", headers={"Origin": ALLOWED})
 
     assert response.status_code == 503
-    assert "Phase 6" in response.json()["detail"]
+    assert "Phase 7" in response.json()["detail"]
     assert response.headers["access-control-allow-origin"] == ALLOWED

@@ -1,6 +1,10 @@
 import os
 from unittest.mock import patch, MagicMock
+
+import boto3
+
 from backend.secrets import (
+    AWSSecretProvider,
     KeyringSecretProvider,
     EnvSecretProvider,
     CompositeSecretProvider,
@@ -63,3 +67,15 @@ def test_get_secret_with_default(monkeypatch):
     with patch("keyring.get_password", return_value=None):
         result = get_secret("UNSET_SECRET_XYZ", default="my_default")
         assert result == "my_default"
+
+
+def test_aws_secret_provider_reads_the_app_prefixed_secret(aws):
+    """Verify AWSSecretProvider reads document-ai-extractor/<name> from Secrets Manager (moto, from conftest.py)."""
+    secrets = boto3.client("secretsmanager")
+    secrets.create_secret(Name="document-ai-extractor/GOOGLE_API_KEY", SecretString="app-key")
+    secrets.create_secret(Name="GOOGLE_API_KEY", SecretString="another-app-key")
+
+    provider = AWSSecretProvider()
+
+    assert provider.get("GOOGLE_API_KEY") == "app-key"
+    assert provider.get("GROQ_API_KEY") is None  # missing: logged, and the composite falls back to the environment

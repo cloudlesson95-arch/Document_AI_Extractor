@@ -94,7 +94,13 @@ class AzureKeyVaultSecretProvider(SecretProvider):
 
 
 class AWSSecretProvider(SecretProvider):
-    """Fetches secrets from AWS Secrets Manager using IAM Role / default credentials."""
+    """Fetches secrets from AWS Secrets Manager using IAM Role / default credentials.
+
+    Secret names carry the app's prefix (GOOGLE_API_KEY is stored as 'document-ai-extractor/GOOGLE_API_KEY'), so
+    they can't collide with other applications' secrets in the same account and region.
+    """
+
+    NAME_PREFIX = "document-ai-extractor/"
 
     def __init__(self, region_name: str | None = None):
         self.region_name = region_name or os.getenv("AWS_REGION", "us-east-1")
@@ -115,7 +121,7 @@ class AWSSecretProvider(SecretProvider):
             client = self._get_client()
             if client is None:
                 return None
-            response = client.get_secret_value(SecretId=name)
+            response = client.get_secret_value(SecretId=self.NAME_PREFIX + name)
             if "SecretString" in response:
                 return response["SecretString"]
             return None

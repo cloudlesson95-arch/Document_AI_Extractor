@@ -1,14 +1,18 @@
+import boto3
 import pytest
 
 from backend.storage.base import FileStorage
 from backend.storage.local import LocalFileStorage
+from backend.storage.s3 import S3FileStorage
 
 
-@pytest.fixture(params=["local"])
+@pytest.fixture(params=["local", "s3"])
 def storage(request, tmp_path) -> FileStorage:
-    # Every FileStorage must pass the tests that use this fixture; Phases 6-7 add S3 and Blob here
+    # Every FileStorage must pass the tests that use this fixture; Phase 7 adds Blob Storage here
     if request.param == "local":
         return LocalFileStorage(tmp_path / "uploads")
+    if request.param == "s3":
+        return S3FileStorage(request.getfixturevalue("s3_bucket"))  # in moto's S3, from conftest.py
 
 
 def test_upload_then_download_returns_the_same_bytes(storage):
@@ -51,3 +55,9 @@ def test_local_storage_writes_under_its_root_only_when_used(tmp_path):
     storage.upload("receipts/abc.pdf", b"x")
 
     assert (tmp_path / "uploads" / "receipts" / "abc.pdf").read_bytes() == b"x"
+
+
+def test_s3_storage_keeps_each_file_as_an_object_named_by_its_key(s3_bucket):
+    S3FileStorage(s3_bucket).upload("receipts/abc.pdf", b"x")
+
+    assert boto3.client("s3").get_object(Bucket=s3_bucket, Key="receipts/abc.pdf")["Body"].read() == b"x"

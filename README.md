@@ -4,20 +4,21 @@ Upload a photo or PDF of a receipt or invoice, and a vision-capable model extrac
 
 Storage, the database and the extraction model each sit behind a small interface, and one setting, `CLOUD_PROVIDER`, selects the implementation: `local`, `aws` or `azure`.
 
-> 🚧 Work in progress: Phases 0–5 (scaffold, extraction, storage, API, frontend, categorization) are done; the rest is planned.
+> 🚧 Work in progress: Phases 0–5 (scaffold, extraction, storage, API, frontend, categorization) are done, Phase 6 (AWS) is in progress, and Phase 7 is planned.
 
 ## Architecture
 
 ```
 Next.js (web/) ──HTTP──▶ FastAPI (backend/)
                              │
-                             │  CLOUD_PROVIDER =  local            aws        azure
-                             ├── FileStorage      disk (uploads/)  S3         Blob Storage
-                             ├── RecordStore      SQLite           DynamoDB   Table Storage
-                             └── VisionExtractor  Gemini API       Bedrock    Azure OpenAI
+                             │  CLOUD_PROVIDER =  local            aws         azure
+                             ├── FileStorage      disk (uploads/)  S3          Blob Storage
+                             ├── RecordStore      SQLite           DynamoDB    Table Storage
+                             ├── UploadQuota      SQLite           DynamoDB    Table Storage
+                             └── VisionExtractor  Gemini API       Gemini API  Azure OpenAI
 ```
 
-`local` needs no cloud account and no cloud SDK, which also proves that no cloud-specific code leaks past the interfaces.
+`local` needs no cloud account and no cloud SDK, which also proves that no cloud-specific code leaks past the interfaces. On `aws` the extractor still calls the Gemini API, with its key from AWS Secrets Manager. `UploadQuota` counts uploads per day for every instance of the API together.
 
 ## Features by phase
 
@@ -29,7 +30,7 @@ Next.js (web/) ──HTTP──▶ FastAPI (backend/)
 | 3. API | ✅ Done | Upload and extract, search and filter, the original file for review, and corrections that record whether the model got something wrong |
 | 4. Frontend | ✅ Done | An upload page that shrinks photos in the browser, a searchable receipts table, and a review page showing the original next to the editable fields |
 | 5. Categorization | ✅ Done | A TF-IDF and logistic-regression classifier suggests an expense category from the vendor and line items; receipts it isn't confident about stay uncategorized |
-| 6. AWS | Planned | S3, DynamoDB and Bedrock implementations; Lambda (container image) behind a Function URL |
+| 6. AWS | 🚧 In progress | S3 and DynamoDB implementations, the Gemini key in Secrets Manager, and a daily upload limit shared by every instance; Lambda (container image) behind a Function URL |
 | 7. Azure | Planned | Blob Storage, Table Storage and Azure OpenAI implementations; the same image on Container Apps |
 
 ## Local setup
@@ -51,7 +52,7 @@ With the backend running, `http://127.0.0.1:8000/docs` describes every endpoint 
 
 | Endpoint | What it does |
 |---|---|
-| `POST /receipts` | Upload a JPEG, PNG, WebP or PDF (multipart field `file`); extracts, categorizes, stores and returns the record. A 413 (over `MAX_UPLOAD_MB`), 415, 429 (see `Retry-After`) or 502 (extraction failed) stores nothing |
+| `POST /receipts` | Upload a JPEG, PNG, WebP or PDF (multipart field `file`); extracts, categorizes, stores and returns the record. A 413 (over `MAX_UPLOAD_MB`), 415, 429 (over the per-minute or daily limit; see `Retry-After`) or 502 (extraction failed) stores nothing |
 | `GET /receipts` | Records, newest first, filtered by `vendor_contains`, `date_from`, `date_to`, `min_total`, `max_total` (bounds inclusive) and `category` |
 | `GET /receipts/{id}` | One record; its `file_url` serves the original upload |
 | `PATCH /receipts/{id}` | JSON with new values for some of `vendor`, `date`, `total_amount`, `currency`, `line_items` and `category`; marks the record `corrected` when an extracted value changes, and `category_corrected` when the category does |
@@ -84,7 +85,7 @@ Open `http://localhost:3000`, not `127.0.0.1:3000`: the backend only accepts bro
 ### Test
 
 ```powershell
-python -m pytest -v          # backend (the live Gemini test is skipped)
+python -m pytest -v          # backend; AWS tests run on moto's in-memory AWS (the live Gemini test is skipped)
 $env:RUN_LIVE_TESTS="1"; python -m pytest tests/test_extraction_live.py -v   # calls the real Gemini API
 cd web
 npm run lint                 # frontend lint
@@ -98,8 +99,8 @@ Every setting has a working local default. The backend reads environment variabl
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CLOUD_PROVIDER` | `local` | `local`, `aws` or `azure` (`aws` and `azure` arrive in Phases 6–7); any other value stops the backend at startup |
-| `SECRET_BACKEND` | `keyring` | `keyring`, `env`, `azure_keyvault` or `aws_secretsmanager`; each falls back to environment variables |
+| `CLOUD_PROVIDER` | `local` | `local`, `aws` or `azure` (`azure` arrives in Phase 7); any other value stops the backend at startup |
+| `SECRET_BACKEND` | `keyring` | `keyring`, `env`, `azure_keyvault` or `aws_secretsmanager` (which reads `document-ai-extractor/<name>`); each falls back to environment variables |
 | `KEYRING_SERVICE_NAME` | `document-ai-extractor` | Keyring entry that `set-secret` writes to |
 | `CORS_ALLOW_ORIGINS` | `http://localhost:3000` | Browser origins allowed to call the API, separated by spaces; a comma stops the backend at startup |
 | `APP_REVISION` | empty | Git SHA of the deployed build, shown in `/health`; the deployment sets it |
@@ -107,12 +108,14 @@ Every setting has a working local default. The backend reads environment variabl
 | `EXTRACTION_TIMEOUT_SECONDS` | `60` | Timeout for one model call; failed calls are retried twice |
 | `MAX_UPLOAD_MB` | `4` | Larger uploads get a 413, on every provider; this keeps requests under Lambda's 6 MB cap. The frontend refuses larger files before sending them, so change `MAX_UPLOAD_MB` in `web/src/lib/upload.ts` with it |
 | `UPLOAD_RATE_LIMIT_PER_MINUTE` | `10` | Uploads that reach the model, per minute for the whole process; more get a 429 with `Retry-After` |
-| `UPLOAD_DIR`, `SQLITE_PATH` | `<repo>/uploads`, `<repo>/data/receipts.db` | Where the `local` provider keeps uploaded files and records |
+| `UPLOAD_DAILY_LIMIT` | `50` | Uploads that reach the model per UTC day, counted for every instance together; more get a 429 until midnight UTC. Unlike the per-minute limit, it bounds a deployment's daily model cost |
+| `UPLOAD_DIR`, `SQLITE_PATH` | `<repo>/uploads`, `<repo>/data/receipts.db` | Where the `local` provider keeps uploaded files, records and daily upload counts |
+| `S3_BUCKET`, `DYNAMODB_RECORDS_TABLE`, `DYNAMODB_QUOTA_TABLE` | empty | Where the `aws` provider keeps them; AWS credentials and the region come from boto3's usual sources |
 | `NEXT_PUBLIC_API_URL` (frontend) | `http://127.0.0.1:8000` | Backend URL, baked into the frontend at build time |
 
 ## Known limitations
 
-- The API has no authentication: anyone who can reach it can upload (up to the rate limit), list, read and correct every receipt. CORS only controls which websites can call it from a browser, not who can call it; `serve` listens on `127.0.0.1` by default for that reason.
+- The API has no authentication: anyone who can reach it can upload (up to the per-minute and daily limits), list, read and correct every receipt. CORS only controls which websites can call it from a browser, not who can call it; `serve` listens on `127.0.0.1` by default for that reason.
 - The category classifier is trained on 260 synthetic English receipts in `backend/categorization/training_data.csv`. It reaches 90% cross-validated accuracy on them; real receipts score lower. A receipt it is less than 40% sure about stays uncategorized, and most non-English receipts do.
 - On the Gemini API free tier, Google may use submitted documents to improve its products. Don't extract receipts that show personal data such as card numbers, names or addresses.
 

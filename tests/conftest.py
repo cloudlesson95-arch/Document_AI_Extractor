@@ -1,8 +1,10 @@
 import datetime
 from decimal import Decimal
 
+import boto3
 import pytest
 from fastapi.testclient import TestClient
+from moto import mock_aws
 
 import backend.providers as providers
 from backend import api
@@ -10,7 +12,8 @@ from backend.extraction.base import VisionExtractor
 from backend.extraction.schema import ExtractedReceipt
 from backend.utils.rate_limit import RateLimiter
 
-GETTERS = [providers.get_file_storage, providers.get_record_store, providers.get_vision_extractor]
+GETTERS = [providers.get_file_storage, providers.get_record_store, providers.get_vision_extractor,
+           providers.get_upload_quota]
 
 
 @pytest.fixture
@@ -24,6 +27,47 @@ def local_providers(monkeypatch, tmp_path):
     yield
     for getter in GETTERS:
         getter.cache_clear()
+
+
+@pytest.fixture
+def aws(monkeypatch):
+    """moto's in-memory AWS, with fake credentials and region, so no test can reach a real account."""
+    for name in ("AWS_PROFILE", "AWS_DEFAULT_PROFILE", "AWS_SESSION_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+        monkeypatch.setenv(name, "testing")
+    for name in ("AWS_REGION", "AWS_DEFAULT_REGION"):
+        monkeypatch.setenv(name, "us-east-1")
+    with mock_aws():
+        yield
+
+
+@pytest.fixture
+def s3_bucket(aws) -> str:
+    """An empty bucket in moto's S3."""
+    boto3.client("s3").create_bucket(Bucket="test-uploads")
+    return "test-uploads"
+
+
+def create_dynamodb_table(name: str, key: str) -> str:
+    """An on-demand table in moto's DynamoDB whose only key is the string attribute `key`, as deployed."""
+    boto3.client("dynamodb").create_table(
+        TableName=name,
+        KeySchema=[{"AttributeName": key, "KeyType": "HASH"}],
+        AttributeDefinitions=[{"AttributeName": key, "AttributeType": "S"}],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    return name
+
+
+@pytest.fixture
+def records_table(aws) -> str:
+    return create_dynamodb_table("test-receipts", "id")
+
+
+@pytest.fixture
+def quota_table(aws) -> str:
+    return create_dynamodb_table("test-upload-counts", "day")
 
 
 class FakeExtractor(VisionExtractor):
@@ -80,6 +124,7 @@ def fake_categorizer(monkeypatch) -> FakeCategorizer:
 
 @pytest.fixture
 def client(monkeypatch, local_providers, fake_extractor, fake_categorizer) -> TestClient:
-    """The API on temporary local storage, with the fake extractor and categorizer and a fresh upload rate limit."""
+    """The API on temporary local storage, with the fake extractor and categorizer and fresh, high upload limits."""
     monkeypatch.setattr(api, "upload_limiter", RateLimiter(max_calls=100))
+    monkeypatch.setattr(providers, "UPLOAD_DAILY_LIMIT", 100)  # the daily count starts at 0 in each test's database
     return TestClient(api.app)

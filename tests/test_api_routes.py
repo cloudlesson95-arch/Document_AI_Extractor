@@ -163,6 +163,38 @@ def test_refused_uploads_dont_use_up_the_rate_limit(client, monkeypatch):
     assert upload(client).status_code == 201
 
 
+def at_utc(hour: int, minute: int, second: int) -> datetime.datetime:
+    return datetime.datetime(2026, 10, 10, hour, minute, second, tzinfo=datetime.timezone.utc)
+
+
+def test_uploads_over_the_daily_limit_get_429_until_utc_midnight(client, fake_extractor, monkeypatch):
+    monkeypatch.setattr(providers, "UPLOAD_DAILY_LIMIT", 2)
+    monkeypatch.setattr(api, "_utc_now", lambda: at_utc(14, 59, 59))
+    assert [upload(client).status_code for _ in range(2)] == [201, 201]
+
+    response = upload(client)
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == str(9 * 3600 + 1)
+    assert "limit of 2 uploads" in response.json()["detail"]
+    assert len(fake_extractor.calls) == 2
+    assert len(client.get("/receipts").json()) == 2
+    # The next UTC day starts a new count
+    monkeypatch.setattr(api, "_utc_now", lambda: at_utc(14, 59, 59) + datetime.timedelta(hours=10))
+    assert upload(client).status_code == 201
+
+
+def test_the_daily_limit_counts_only_uploads_that_reach_the_model(client, fake_extractor, monkeypatch):
+    monkeypatch.setattr(providers, "UPLOAD_DAILY_LIMIT", 1)
+
+    assert upload(client, b"not a receipt").status_code == 415  # refused before the model: not counted
+    fake_extractor.error = ExtractionError("unreadable")
+    assert upload(client).status_code == 502  # the model was called: counted
+    fake_extractor.error = None
+    response = upload(client)
+    assert response.status_code == 429 and "Today's limit" in response.json()["detail"]
+
+
 @pytest.fixture
 def three_receipts(client):
     """Stored on consecutive days: Cafe Uno (Meals), then Pingo Doce (Groceries), then Cafe Dos (uncategorized)."""
