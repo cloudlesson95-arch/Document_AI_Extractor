@@ -3,3 +3,4 @@
 -c requirements.txt
 pytest==9.1.1
 httpx2  # FastAPI's TestClient; Starlette deprecates running it on httpx
+moto[s3,dynamodb,secretsmanager]==5.2.3  # in-memory AWS for the S3, DynamoDB and Secrets Manager tests
