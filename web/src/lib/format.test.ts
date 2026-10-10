@@ -26,4 +26,12 @@ describe("errorMessage", () => {
     expect(errorMessage(new ApiError(413, "The file is larger than 4 MB"))).toBe("The file is larger than 4 MB");
     expect(errorMessage(new Error("boom"))).toBe("Error: boom");
   });
+
+  it("gives long waits in minutes or hours, rounded up", () => {
+    const after = (seconds: number) => errorMessage(new ApiError(429, "Wait", seconds));
+    expect(after(119)).toBe("Wait (in 119 s)");
+    expect(after(120)).toBe("Wait (in 2 min)");
+    expect(after(7199)).toBe("Wait (in 120 min)");
+    expect(after(32_401)).toBe("Wait (in 10 h)"); // the daily limit, from 14:59:59 UTC to midnight
+  });
 });
