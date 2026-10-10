@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import Field, ValidationError
 
+from .categorization.classifier import get_categorizer
 from .config import APP_REVISION, CLOUD_PROVIDER, CORS_ALLOW_ORIGINS, MAX_UPLOAD_MB, UPLOAD_RATE_LIMIT_PER_MINUTE
 from .extraction.base import SUPPORTED_MIME_TYPES, ExtractionError, detect_mime_type
 from .extraction.schema import ExtractedReceipt
@@ -18,8 +19,8 @@ from .utils.rate_limit import RateLimiter
 logger = setup_logging(__name__)
 
 MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)
-# Fields a correction may change; `corrected` is set by the API, never by the client
-EDITABLE_FIELDS = frozenset(ExtractedReceipt.model_fields)
+# Fields a correction may change; `corrected` and `category_corrected` are set by the API, never by the client
+EDITABLE_FIELDS = frozenset(ExtractedReceipt.model_fields) | {"category"}
 
 upload_limiter = RateLimiter(UPLOAD_RATE_LIMIT_PER_MINUTE)
 
@@ -106,11 +107,18 @@ def create_receipt(file: Annotated[UploadFile, File(description="A JPEG, PNG, We
         raise HTTPException(status_code=502, detail="The model couldn't read this document. "
                                                     "Try again, or upload a sharper image.")
 
+    # The category is a suggestion the review page can change, so a failing classifier must not lose the upload
+    try:
+        category = get_categorizer().predict(receipt)
+    except Exception:
+        logger.exception("[API] Categorization failed; storing the receipt without a category")
+        category = None
+
     record_id = uuid.uuid4().hex
     file_key = get_file_storage().upload(f"receipts/{record_id}.{mime_type.split('/')[1]}", content)
-    record = ReceiptRecord(**receipt.model_dump(), id=record_id, file_key=file_key, mime_type=mime_type)
+    record = ReceiptRecord(**receipt.model_dump(), category=category, id=record_id, file_key=file_key, mime_type=mime_type)
     get_record_store().put(record)
-    logger.info(f"[API] Stored receipt {record_id} ({mime_type}, {len(content) / 1024:.0f} KB)")
+    logger.info(f"[API] Stored receipt {record_id} ({mime_type}, {len(content) / 1024:.0f} KB, category {category})")
     return _response(record)
 
 
@@ -160,10 +168,11 @@ def correct_receipt(
         examples=[{"vendor": "Cafe Uno", "total_amount": "9.20"}],
     )],
 ):
-    """Correct some extracted fields; fields left out keep their values.
+    """Correct some extracted fields or the category; fields left out keep their values.
 
-    The receipt is marked as corrected only if a value actually changes, so `corrected` counts the receipts
-    the model got wrong, not the ones that were merely reviewed.
+    A receipt is marked only when a value actually changes, so the flags count the receipts a model got wrong,
+    not the ones that were merely reviewed: `corrected` for the extracted fields (the vision model), and
+    `category_corrected` for the category (the classifier).
     """
     not_editable = set(fields) - EDITABLE_FIELDS
     if not_editable:
@@ -179,6 +188,11 @@ def correct_receipt(
     changed = sorted(name for name in fields if getattr(candidate, name) != getattr(record, name))
     if not changed:
         return _response(record)
-    updated = get_record_store().update(record_id, {**fields, "corrected": True})
+    marks = {}
+    if any(name != "category" for name in changed):
+        marks["corrected"] = True
+    if "category" in changed:
+        marks["category_corrected"] = True
+    updated = get_record_store().update(record_id, {**fields, **marks})
     logger.info(f"[API] Receipt {record_id} corrected: {changed}")
     return _response(updated)

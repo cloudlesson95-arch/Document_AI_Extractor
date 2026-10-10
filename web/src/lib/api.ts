@@ -26,11 +26,28 @@ export type ExtractedReceipt = {
   line_items: LineItem[];
 };
 
-export type Receipt = ExtractedReceipt & {
+// The expense categories the backend's classifier suggests. The backend's list is in
+// backend/categorization/categories.py and refuses anything else, so change both together.
+export const CATEGORIES = [
+  "Meals",
+  "Groceries",
+  "Travel",
+  "Transport",
+  "Office Supplies",
+  "Software & Subscriptions",
+  "Utilities & Phone",
+] as const;
+export type Category = (typeof CATEGORIES)[number];
+
+/** What a correction may change: the extracted fields and the category. */
+export type Correction = ExtractedReceipt & { category: Category | null };
+
+export type Receipt = Correction & {
   id: string;
   file_key: string;
   mime_type: string;
-  corrected: boolean; // true once a correction changed a value
+  corrected: boolean; // true once a correction changed an extracted value
+  category_corrected: boolean; // true once a correction changed the category
   created_at: string;
   updated_at: string;
   file_url: string; // relative to API_URL; see fileUrl()
@@ -43,6 +60,7 @@ export type ReceiptFilters = {
   date_to?: string;
   min_total?: string;
   max_total?: string;
+  category?: string;
 };
 
 /** A failed API call: the HTTP status, or 0 when no response arrived (network, CORS or timeout). */
@@ -145,8 +163,8 @@ export const api = {
 
   getReceipt: (id: string) => request<Receipt>(`/receipts/${encodeURIComponent(id)}`, { cache: "no-store" }),
 
-  /** New values for some extracted fields; the backend marks the receipt corrected only if a value changes. */
-  correctReceipt: (id: string, fields: Partial<ExtractedReceipt>) =>
+  /** New values for some fields; the backend marks the receipt (or its category) corrected only if a value changes. */
+  correctReceipt: (id: string, fields: Partial<Correction>) =>
     request<Receipt>(`/receipts/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

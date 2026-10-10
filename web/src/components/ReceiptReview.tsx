@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { api, ApiError, fileUrl, type Receipt } from "@/lib/api";
+import { api, ApiError, CATEGORIES, fileUrl, type Receipt } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { hasChanges, newLineItem, toCorrection, toDraft, type LineItemDraft, type ReceiptDraft } from "@/lib/receiptForm";
 import { errorText, input, muted, primaryButton, secondaryButton } from "./ui";
@@ -124,6 +124,12 @@ function ReviewForm({ initial }: { initial: Receipt }) {
             <input value={draft.currency} maxLength={3} placeholder="EUR" onChange={(e) => setField("currency", e.target.value)} aria-invalid={Boolean(fieldErrors.currency)} className={`${input} uppercase`} />
           </Field>
         </div>
+        <Field label="Category" hint={categoryHint(receipt)} error={fieldErrors.category}>
+          <select value={draft.category} onChange={(e) => setField("category", e.target.value)} aria-invalid={Boolean(fieldErrors.category)} className={input}>
+            <option value="">Uncategorized</option>
+            {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
+          </select>
+        </Field>
 
         <fieldset>
           <legend className="text-sm font-medium">Line items</legend>
@@ -181,7 +187,7 @@ function ReviewForm({ initial }: { initial: Receipt }) {
             Discard changes
           </button>
           <p aria-live="polite" className="text-sm">
-            {status.state === "saved" && (status.changed ? "Saved: the receipt is marked as corrected." : "No value changed, so nothing was saved.")}
+            {status.state === "saved" && (status.changed ? "Saved." : "No value changed, so nothing was saved.")}
             {status.state === "failed" && <span className={errorText}>{status.message}</span>}
           </p>
         </div>
@@ -190,12 +196,18 @@ function ReviewForm({ initial }: { initial: Receipt }) {
   );
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+// Where the saved category came from, so the reviewer knows how much to trust it
+function categoryHint(receipt: Receipt): string {
+  if (receipt.category_corrected) return "Chosen during review.";
+  return receipt.category ? "Suggested from the vendor and line items." : "No category was likely enough; choose one.";
+}
+
+function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {
   return (
     <label className="block text-sm">
       <span className="mb-1 block font-medium">{label}</span>
       {children}
-      {error && <span className={`mt-1 block text-xs ${errorText}`}>{error}</span>}
+      {error ? <span className={`mt-1 block text-xs ${errorText}`}>{error}</span> : hint && <span className={`mt-1 block text-xs ${muted}`}>{hint}</span>}
     </label>
   );
 }

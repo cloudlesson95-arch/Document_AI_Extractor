@@ -1,4 +1,6 @@
+import contextlib
 import datetime
+import sqlite3
 from decimal import Decimal
 
 import pytest
@@ -121,6 +123,36 @@ def test_update_validates_new_values_and_keeps_the_old_record(store):
     assert store.get(record.id) == record
 
 
+def test_category_filter_matches_exactly_and_skips_uncategorized_records(store):
+    for day, (vendor, category) in enumerate([("Cafe Uno", "Meals"), ("Pingo Doce", "Groceries"), ("Kiosk", None),
+                                              ("Cafe Dois", "Meals")], start=1):
+        store.put(make_record(vendor=vendor, category=category, created_at=at(day)))
+
+    assert vendors(store.search(RecordFilters(category="Meals"))) == ["Cafe Dois", "Cafe Uno"]
+    assert vendors(store.search(RecordFilters(category="Meals", vendor_contains="uno"))) == ["Cafe Uno"]
+    assert vendors(store.search(RecordFilters(category="Travel"))) == []
+
+
+def test_update_changes_the_category_and_its_flag(store):
+    record = make_record(category="Groceries")
+    store.put(record)
+
+    updated = store.update(record.id, {"category": "Meals", "category_corrected": True})
+
+    assert (updated.category, updated.category_corrected, updated.corrected) == ("Meals", True, False)
+    assert vendors(store.search(RecordFilters(category="Meals"))) == ["Cafe Uno"]
+    assert store.search(RecordFilters(category="Groceries")) == []
+
+
+def test_update_refuses_an_unknown_category(store):
+    record = make_record()
+    store.put(record)
+
+    with pytest.raises(ValidationError):
+        store.update(record.id, {"category": "Food"})
+    assert store.get(record.id) == record
+
+
 @pytest.mark.parametrize("field", ["id", "file_key", "mime_type", "created_at", "updated_at"])
 def test_update_rejects_bookkeeping_fields(store, field):
     record = make_record()
@@ -139,3 +171,18 @@ def test_sqlite_records_persist_across_store_instances(tmp_path):
     SQLiteRecordStore(tmp_path / "receipts.db").put(record)
 
     assert SQLiteRecordStore(tmp_path / "receipts.db").get(record.id) == record
+
+
+def test_sqlite_records_saved_before_categories_existed_need_no_migration(tmp_path):
+    store = SQLiteRecordStore(tmp_path / "receipts.db")
+    record = make_record()
+    store.put(record)
+    # Rewrite the row the way a database from before categories holds it: without the two new fields
+    old_data = record.model_dump_json(exclude={"category", "category_corrected"})
+    with contextlib.closing(sqlite3.connect(store.path)) as conn, conn:
+        conn.execute("UPDATE receipts SET data = ? WHERE id = ?", (old_data, record.id))
+
+    assert store.get(record.id) == record  # category None, category_corrected False
+    assert store.search(RecordFilters(category="Meals")) == []
+    store.update(record.id, {"category": "Meals"})
+    assert vendors(store.search(RecordFilters(category="Meals"))) == ["Cafe Uno"]

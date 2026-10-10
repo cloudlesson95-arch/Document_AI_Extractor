@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { api, toQuery, type Receipt, type ReceiptFilters } from "@/lib/api";
+import { api, CATEGORIES, toQuery, type Receipt, type ReceiptFilters } from "@/lib/api";
 import { errorMessage, formatMoney } from "@/lib/format";
 import { errorText, input, muted, primaryButton, secondaryButton } from "./ui";
 
 // The filters live in the URL, so they survive going back from a receipt and a search can be bookmarked
-const FILTER_NAMES = ["vendor_contains", "date_from", "date_to"] as const;
+const FILTER_NAMES = ["vendor_contains", "date_from", "date_to", "category"] as const;
 
 function filtersOf(params: URLSearchParams): ReceiptFilters {
   return Object.fromEntries(FILTER_NAMES.map((name) => [name, params.get(name) ?? ""]));
@@ -51,10 +51,17 @@ export default function ReceiptList() {
           <span className="font-medium">To</span>
           <input name="date_to" type="date" defaultValue={filters.date_to} className={`mt-1 ${input}`} />
         </label>
+        <label className="text-sm">
+          <span className="font-medium">Category</span>
+          <select name="category" defaultValue={filters.category} className={`mt-1 ${input}`}>
+            <option value="">All</option>
+            {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
+          </select>
+        </label>
         <button type="submit" className={primaryButton}>Search</button>
         {query && <Link href="/receipts" className={secondaryButton}>Clear</Link>}
       </Form>
-      {query && <p className={`mt-2 text-xs ${muted}`}>Receipts whose vendor or date couldn&apos;t be read never match a filter on it.</p>}
+      {query && <p className={`mt-2 text-xs ${muted}`}>Receipts whose vendor, date or category is unknown never match a filter on it.</p>}
 
       <div className="mt-6">
         {result?.query !== query ? (
@@ -81,6 +88,7 @@ function ReceiptTable({ receipts }: { receipts: Receipt[] }) {
           <tr className={`text-left ${muted}`}>
             <th className="py-2 pr-4 font-normal">Vendor</th>
             <th className="py-2 pr-4 font-normal">Date</th>
+            <th className="py-2 pr-4 font-normal">Category</th>
             <th className="py-2 pr-4 text-right font-normal">Total</th>
             <th className="py-2 font-normal">Status</th>
           </tr>
@@ -94,6 +102,7 @@ function ReceiptTable({ receipts }: { receipts: Receipt[] }) {
                 </Link>
               </td>
               <td className="py-2 pr-4 tabular-nums">{receipt.date ?? "–"}</td>
+              <td className={`py-2 pr-4 ${receipt.category ? "" : muted}`}>{receipt.category ?? "Uncategorized"}</td>
               <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(receipt.total_amount, receipt.currency)}</td>
               <td className={`py-2 ${receipt.corrected ? "" : muted}`}>{receipt.corrected ? "Corrected" : "As extracted"}</td>
             </tr>

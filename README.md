@@ -1,10 +1,10 @@
 # Document AI Extractor
 
-Upload a photo or PDF of a receipt or invoice, and a vision-capable model extracts the vendor, date, total amount, currency and line items into a validated record. You review and correct the extraction before it is final, then search your records in a dashboard.
+Upload a photo or PDF of a receipt or invoice, and a vision-capable model extracts the vendor, date, total amount, currency and line items into a validated record. A small classical classifier (scikit-learn, not the language model) suggests an expense category. You review and correct both before they are final, then search your records in a dashboard.
 
 Storage, the database and the extraction model each sit behind a small interface, and one setting, `CLOUD_PROVIDER`, selects the implementation: `local`, `aws` or `azure`.
 
-> 🚧 Work in progress: Phases 0–4 (scaffold, extraction, storage, API, frontend) are done; the rest is planned.
+> 🚧 Work in progress: Phases 0–5 (scaffold, extraction, storage, API, frontend, categorization) are done; the rest is planned.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ Next.js (web/) ──HTTP──▶ FastAPI (backend/)
 | 2. Storage | ✅ Done | `FileStorage` (disk) and `RecordStore` (SQLite) behind interfaces with shared contract tests; `backend/providers.py` picks the implementations from `CLOUD_PROVIDER` |
 | 3. API | ✅ Done | Upload and extract, search and filter, the original file for review, and corrections that record whether the model got something wrong |
 | 4. Frontend | ✅ Done | An upload page that shrinks photos in the browser, a searchable receipts table, and a review page showing the original next to the editable fields |
-| 5. Categorization | Optional | A small classical-ML classifier for expense categories |
+| 5. Categorization | ✅ Done | A TF-IDF and logistic-regression classifier suggests an expense category from the vendor and line items; receipts it isn't confident about stay uncategorized |
 | 6. AWS | Planned | S3, DynamoDB and Bedrock implementations; Lambda (container image) behind a Function URL |
 | 7. Azure | Planned | Blob Storage, Table Storage and Azure OpenAI implementations; the same image on Container Apps |
 
@@ -51,10 +51,10 @@ With the backend running, `http://127.0.0.1:8000/docs` describes every endpoint 
 
 | Endpoint | What it does |
 |---|---|
-| `POST /receipts` | Upload a JPEG, PNG, WebP or PDF (multipart field `file`); extracts, stores and returns the record. A 413 (over `MAX_UPLOAD_MB`), 415, 429 (see `Retry-After`) or 502 (extraction failed) stores nothing |
-| `GET /receipts` | Records, newest first, filtered by `vendor_contains`, `date_from`, `date_to`, `min_total` and `max_total` (bounds inclusive) |
+| `POST /receipts` | Upload a JPEG, PNG, WebP or PDF (multipart field `file`); extracts, categorizes, stores and returns the record. A 413 (over `MAX_UPLOAD_MB`), 415, 429 (see `Retry-After`) or 502 (extraction failed) stores nothing |
+| `GET /receipts` | Records, newest first, filtered by `vendor_contains`, `date_from`, `date_to`, `min_total`, `max_total` (bounds inclusive) and `category` |
 | `GET /receipts/{id}` | One record; its `file_url` serves the original upload |
-| `PATCH /receipts/{id}` | JSON with new values for some of `vendor`, `date`, `total_amount`, `currency` and `line_items`; marks the record `corrected` only when a value changes |
+| `PATCH /receipts/{id}` | JSON with new values for some of `vendor`, `date`, `total_amount`, `currency`, `line_items` and `category`; marks the record `corrected` when an extracted value changes, and `category_corrected` when the category does |
 
 Amounts are JSON strings such as `"9.20"`, so they stay exact. To try it from PowerShell:
 
@@ -79,7 +79,7 @@ The backend URL defaults to `http://127.0.0.1:8000`; to change it, copy `web/.en
 
 Open `http://localhost:3000`, not `127.0.0.1:3000`: the backend only accepts browser requests from the origins in `CORS_ALLOW_ORIGINS`. The home page shows a green status line when it can reach the backend.
 
-`/upload` extracts a receipt, `/receipts` lists and searches them, and `/receipts/<id>` shows the original next to the fields to correct. Before uploading, the browser redraws photos as JPEGs of at most 2000 px, so phone photos fit under the upload cap; PDFs are sent as they are.
+`/upload` extracts a receipt, `/receipts` lists them and filters by vendor, date and category, and `/receipts/<id>` shows the original next to the fields and the category to correct. Before uploading, the browser redraws photos as JPEGs of at most 2000 px, so phone photos fit under the upload cap; PDFs are sent as they are.
 
 ### Test
 
@@ -113,6 +113,7 @@ Every setting has a working local default. The backend reads environment variabl
 ## Known limitations
 
 - The API has no authentication: anyone who can reach it can upload (up to the rate limit), list, read and correct every receipt. CORS only controls which websites can call it from a browser, not who can call it; `serve` listens on `127.0.0.1` by default for that reason.
+- The category classifier is trained on 260 synthetic English receipts in `backend/categorization/training_data.csv`. It reaches 90% cross-validated accuracy on them; real receipts score lower. A receipt it is less than 40% sure about stays uncategorized, and most non-English receipts do.
 - On the Gemini API free tier, Google may use submitted documents to improve its products. Don't extract receipts that show personal data such as card numbers, names or addresses.
 
 ## License

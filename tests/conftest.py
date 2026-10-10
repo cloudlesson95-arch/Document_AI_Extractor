@@ -55,8 +55,31 @@ def fake_extractor(monkeypatch, local_providers) -> FakeExtractor:
     return extractor
 
 
+class FakeCategorizer:
+    """Returns `category`, or raises `error` if set, instead of running the classifier; records every call."""
+
+    def __init__(self):
+        self.category: str | None = "Meals"
+        self.error: Exception | None = None
+        self.calls: list[ExtractedReceipt] = []
+
+    def predict(self, receipt: ExtractedReceipt) -> str | None:
+        self.calls.append(receipt)
+        if self.error:
+            raise self.error
+        return self.category
+
+
 @pytest.fixture
-def client(monkeypatch, local_providers, fake_extractor) -> TestClient:
-    """The API on temporary local storage, with the fake extractor and a fresh upload rate limit."""
+def fake_categorizer(monkeypatch) -> FakeCategorizer:
+    """The categorizer the API uses, in place of the trained one, so API tests don't depend on the training data."""
+    categorizer = FakeCategorizer()
+    monkeypatch.setattr(api, "get_categorizer", lambda: categorizer)
+    return categorizer
+
+
+@pytest.fixture
+def client(monkeypatch, local_providers, fake_extractor, fake_categorizer) -> TestClient:
+    """The API on temporary local storage, with the fake extractor and categorizer and a fresh upload rate limit."""
     monkeypatch.setattr(api, "upload_limiter", RateLimiter(max_calls=100))
     return TestClient(api.app)

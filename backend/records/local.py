@@ -85,6 +85,10 @@ class SQLiteRecordStore(RecordStore):
         if filters.max_total is not None:
             conditions.append("total_amount <= ?")
             params.append(float(filters.max_total))
+        if filters.category:
+            # Read from the JSON rather than a column of its own, so databases created before categories need no migration
+            conditions.append("json_extract(data, '$.category') = ?")
+            params.append(filters.category)
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         with self._connect() as conn:
             rows = conn.execute(f"SELECT data FROM receipts {where} ORDER BY created_at DESC", params).fetchall()

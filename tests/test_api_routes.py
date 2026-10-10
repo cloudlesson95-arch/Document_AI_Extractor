@@ -1,4 +1,8 @@
 import datetime
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,6 +12,8 @@ from backend import api
 from backend.extraction.base import ExtractionError
 from backend.records.base import ReceiptRecord
 from backend.utils.rate_limit import RateLimiter
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # The smallest files detect_mime_type() recognizes, one per supported type
 FILES = {
@@ -59,6 +65,43 @@ def test_upload_extracts_stores_and_returns_the_receipt(client, fake_extractor):
     assert receipt["file_url"] == f"/receipts/{receipt['id']}/file"
     assert fake_extractor.calls == [(PNG, "image/png")]
     assert client.get(f"/receipts/{receipt['id']}").json() == receipt
+
+
+def test_upload_stores_the_category_suggested_for_the_extracted_fields(client, fake_categorizer):
+    receipt = upload(client).json()
+
+    assert (receipt["category"], receipt["category_corrected"]) == ("Meals", False)
+    assert [call.vendor for call in fake_categorizer.calls] == ["Cafe Uno"]
+    assert client.get(f"/receipts/{receipt['id']}").json()["category"] == "Meals"
+
+
+def test_an_upload_without_a_likely_category_is_stored_uncategorized(client, fake_categorizer):
+    fake_categorizer.category = None
+
+    assert upload(client).json()["category"] is None
+
+
+def test_a_failing_categorizer_does_not_lose_the_upload(client, fake_categorizer):
+    fake_categorizer.error = FileNotFoundError("training_data.csv")
+
+    response = upload(client)
+
+    assert response.status_code == 201
+    assert response.json()["category"] is None
+    assert [receipt["id"] for receipt in client.get("/receipts").json()] == [response.json()["id"]]
+
+
+def test_the_api_starts_without_loading_scikit_learn(tmp_path):
+    # Fresh interpreter, since other tests load it. On Lambda, only the first upload should pay its ~1 s import.
+    code = (
+        "import sys\nfrom fastapi.testclient import TestClient\nfrom backend.api import app\n"
+        "assert TestClient(app).get('/health').status_code == 200\nprint('sklearn' in sys.modules)"
+    )
+    env = {**os.environ, "CLOUD_PROVIDER": "local", "LOG_TO_FILE": "false", "LOG_TO_CONSOLE": "false"}
+
+    result = subprocess.run([sys.executable, "-c", code], cwd=REPO_ROOT, env=env, capture_output=True, text=True, check=True)
+
+    assert result.stdout.strip() == "False"
 
 
 @pytest.mark.parametrize("mime_type", sorted(FILES))
@@ -122,14 +165,15 @@ def test_refused_uploads_dont_use_up_the_rate_limit(client, monkeypatch):
 
 @pytest.fixture
 def three_receipts(client):
-    """Stored on consecutive days: Cafe Uno, then Pingo Doce, then Cafe Dos."""
+    """Stored on consecutive days: Cafe Uno (Meals), then Pingo Doce (Groceries), then Cafe Dos (uncategorized)."""
     store = providers.get_record_store()
-    for day, (vendor, date, total) in enumerate(
-        [("Cafe Uno", "2026-09-01", "5.00"), ("Pingo Doce", "2026-09-14", "42.10"), ("Cafe Dos", "2026-09-30", "12.00")],
+    for day, (vendor, date, total, category) in enumerate(
+        [("Cafe Uno", "2026-09-01", "5.00", "Meals"), ("Pingo Doce", "2026-09-14", "42.10", "Groceries"),
+         ("Cafe Dos", "2026-09-30", "12.00", None)],
         start=1,
     ):
         store.put(ReceiptRecord(
-            vendor=vendor, date=date, total_amount=total, currency="EUR", line_items=[],
+            vendor=vendor, date=date, total_amount=total, currency="EUR", line_items=[], category=category,
             file_key="receipts/x.png", mime_type="image/png",
             created_at=datetime.datetime(2026, 10, day, tzinfo=datetime.timezone.utc),
         ))
@@ -143,6 +187,9 @@ def three_receipts(client):
     ("min_total=12", ["Cafe Dos", "Pingo Doce"]),
     ("max_total=12.00", ["Cafe Dos", "Cafe Uno"]),
     ("vendor_contains=cafe&date_from=2026-09-02&max_total=20", ["Cafe Dos"]),
+    ("category=Meals", ["Cafe Uno"]),
+    ("category=Groceries&min_total=40", ["Pingo Doce"]),
+    ("category=Software+%26+Subscriptions", []),
 ])
 def test_list_filters_by_the_query_parameters_newest_first(client, three_receipts, query, expected):
     response = client.get(f"/receipts?{query}")
@@ -151,7 +198,7 @@ def test_list_filters_by_the_query_parameters_newest_first(client, three_receipt
     assert [receipt["vendor"] for receipt in response.json()] == expected
 
 
-@pytest.mark.parametrize("query", ["date_from=yesterday", "min_total=ten"])
+@pytest.mark.parametrize("query", ["date_from=yesterday", "min_total=ten", "category=Food"])
 def test_invalid_filters_are_refused_with_422(client, query):
     assert client.get(f"/receipts?{query}").status_code == 422
 
@@ -184,7 +231,27 @@ def test_a_correction_changes_only_the_given_fields_and_marks_the_receipt_correc
     assert client.get(f"/receipts/{original['id']}").json() == corrected
 
 
-@pytest.mark.parametrize("fields", [{}, {"vendor": "Cafe Uno"}, {"total_amount": 9.2, "date": "2026-09-14"}])
+@pytest.mark.parametrize("category", ["Groceries", None])
+def test_a_category_change_marks_the_category_not_the_extraction_as_corrected(client, category):
+    original = upload(client).json()
+
+    corrected = client.patch(f"/receipts/{original['id']}", json={"category": category}).json()
+
+    assert (corrected["category"], corrected["category_corrected"], corrected["corrected"]) == (category, True, False)
+    assert corrected["updated_at"] > original["updated_at"]
+    assert client.get(f"/receipts/{original['id']}").json() == corrected
+
+
+def test_changing_a_field_and_the_category_marks_both(client):
+    original = upload(client).json()
+
+    corrected = client.patch(f"/receipts/{original['id']}", json={"vendor": "Cafe Uno Lisboa", "category": "Travel"}).json()
+
+    assert (corrected["corrected"], corrected["category_corrected"]) == (True, True)
+
+
+@pytest.mark.parametrize("fields", [{}, {"vendor": "Cafe Uno"}, {"total_amount": 9.2, "date": "2026-09-14"},
+                                    {"category": "Meals"}])
 def test_saving_unchanged_values_is_not_a_correction(client, fields):
     original = upload(client).json()
 
@@ -194,8 +261,9 @@ def test_saving_unchanged_values_is_not_a_correction(client, fields):
     assert response.json() == original  # still uncorrected, and not even updated_at moved
 
 
-@pytest.mark.parametrize("field", ["id", "file_key", "mime_type", "corrected", "created_at", "unknown"])
-def test_a_correction_cannot_touch_anything_but_the_extracted_fields(client, field):
+@pytest.mark.parametrize("field", ["id", "file_key", "mime_type", "corrected", "category_corrected", "created_at",
+                                   "unknown"])
+def test_a_correction_cannot_touch_anything_but_the_editable_fields(client, field):
     original = upload(client).json()
 
     response = client.patch(f"/receipts/{original['id']}", json={"vendor": "Other", field: "x"})
@@ -210,6 +278,7 @@ def test_a_correction_cannot_touch_anything_but_the_extracted_fields(client, fie
     {"total_amount": "-1"},
     {"date": "2026-02-30"},
     {"line_items": [{"description": "Latte", "quantity": 0, "unit_price": "3.75"}]},
+    {"category": "Food"},
 ], ids=lambda fields: next(iter(fields)))
 def test_invalid_corrections_are_refused_with_422_and_change_nothing(client, fields):
     original = upload(client).json()

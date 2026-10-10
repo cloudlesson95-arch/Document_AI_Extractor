@@ -64,7 +64,8 @@ class ExpenseCategorizer:
         started = time.perf_counter()
         texts, categories = load_training_data()
         self.model = build_model().fit(texts, categories)
-        logger.info(f"[Categorizer] Trained on {len(texts)} receipts in {time.perf_counter() - started:.2f} s")
+        logger.info(f"[Categorizer] Loaded scikit-learn and trained on {len(texts)} receipts "
+                    f"in {time.perf_counter() - started:.2f} s")
 
     def predict(self, receipt: ExtractedReceipt) -> Category | None:
         """The most likely category, or None if the receipt has no text or no category is likely enough."""

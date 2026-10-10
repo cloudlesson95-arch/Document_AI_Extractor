@@ -1,4 +1,4 @@
-import type { ExtractedReceipt } from "./api";
+import type { Category, Correction } from "./api";
 import { formatAmount } from "./format";
 
 // The review form's values: strings, "" when unknown. `key` keeps React's rows stable as items are added and removed.
@@ -9,6 +9,7 @@ export type ReceiptDraft = {
   date: string; // YYYY-MM-DD, as <input type="date"> uses it
   total_amount: string;
   currency: string;
+  category: string; // one of CATEGORIES, or "" for none
   line_items: LineItemDraft[];
 };
 
@@ -19,12 +20,13 @@ export function newLineItem(): LineItemDraft {
 }
 
 /** The form's starting values for a receipt, with amounts shown to two decimals. */
-export function toDraft(receipt: ExtractedReceipt): ReceiptDraft {
+export function toDraft(receipt: Correction): ReceiptDraft {
   return {
     vendor: receipt.vendor ?? "",
     date: receipt.date ?? "",
     total_amount: receipt.total_amount == null ? "" : formatAmount(receipt.total_amount),
     currency: receipt.currency ?? "",
+    category: receipt.category ?? "",
     line_items: receipt.line_items.map((item) => ({
       ...newLineItem(),
       description: item.description,
@@ -43,12 +45,13 @@ function decimal(value: string): string {
  * The PATCH body for a draft. It sends every field: the backend compares the values (9.2 equals 9.20)
  * and marks the receipt corrected only if one changes, so unchanged fields cost nothing.
  */
-export function toCorrection(draft: ReceiptDraft): ExtractedReceipt {
+export function toCorrection(draft: ReceiptDraft): Correction {
   return {
     vendor: draft.vendor.trim() || null,
     date: draft.date || null,
     total_amount: decimal(draft.total_amount) || null,
     currency: draft.currency.trim().toUpperCase() || null,
+    category: (draft.category || null) as Category | null, // the form only offers CATEGORIES; the backend checks too
     line_items: draft.line_items.map((item) => ({
       description: item.description.trim(),
       quantity: decimal(item.quantity),

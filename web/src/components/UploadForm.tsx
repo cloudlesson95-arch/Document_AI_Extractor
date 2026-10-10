@@ -74,6 +74,8 @@ function ExtractedFields({ receipt }: { receipt: Receipt }) {
         <dd>{receipt.date ?? "–"}</dd>
         <dt className={muted}>Total</dt>
         <dd className="tabular-nums">{formatMoney(receipt.total_amount, receipt.currency)}</dd>
+        <dt className={muted}>Category</dt>
+        <dd>{receipt.category ?? <span className={muted}>None suggested</span>}</dd>
       </dl>
 
       {receipt.line_items.length > 0 && (

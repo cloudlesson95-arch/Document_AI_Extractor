@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
+from ..categorization.categories import Category
 from ..extraction.schema import ExtractedReceipt
 
 
@@ -13,24 +14,30 @@ def _utc_now() -> datetime.datetime:
 
 
 class ReceiptRecord(ExtractedReceipt):
-    """A stored receipt: the extracted (or corrected) fields plus bookkeeping."""
+    """A stored receipt: the extracted (or corrected) fields, the expense category, and bookkeeping.
+
+    The category is not part of ExtractedReceipt: that schema is sent to the vision model, and the category
+    comes from a separate classical classifier instead.
+    """
 
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     file_key: str = Field(description="FileStorage key of the original upload")
     mime_type: str = Field(description="Type of the original upload, e.g. application/pdf")
+    category: Category | None = Field(default=None, description="Expense category; null if none was likely enough")
     corrected: bool = Field(default=False, description="True once a person has edited the extracted fields")
+    category_corrected: bool = Field(default=False, description="True once a person has changed the category")
     created_at: datetime.datetime = Field(default_factory=_utc_now)
     updated_at: datetime.datetime = Field(default_factory=_utc_now)
 
 
 # Fields RecordStore.update() may change; the id, the file and the timestamps belong to the store
-UPDATABLE_FIELDS = frozenset(ExtractedReceipt.model_fields) | {"corrected"}
+UPDATABLE_FIELDS = frozenset(ExtractedReceipt.model_fields) | {"category", "corrected", "category_corrected"}
 
 
 class RecordFilters(BaseModel):
     """Search criteria for RecordStore.search(). Bounds are inclusive and unset criteria are ignored.
 
-    A record whose vendor, date or total is null never matches a filter on that field.
+    A record whose vendor, date, total or category is null never matches a filter on that field.
     """
 
     vendor_contains: str | None = None  # case-insensitive substring
@@ -38,6 +45,7 @@ class RecordFilters(BaseModel):
     date_to: datetime.date | None = None
     min_total: Decimal | None = None
     max_total: Decimal | None = None
+    category: Category | None = None
 
 
 def apply_update(record: ReceiptRecord, fields: dict) -> ReceiptRecord:

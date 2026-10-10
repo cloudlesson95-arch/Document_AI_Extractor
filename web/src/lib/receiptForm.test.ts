@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import type { ExtractedReceipt } from "./api";
+import type { Correction } from "./api";
 import { hasChanges, newLineItem, toCorrection, toDraft } from "./receiptForm";
 
-const receipt: ExtractedReceipt = {
+const receipt: Correction = {
   vendor: "Cafe Uno",
   date: "2026-03-14",
   total_amount: "9.2",
   currency: "EUR",
+  category: "Meals",
   line_items: [{ description: "Espresso", quantity: "2", unit_price: "1.899" }],
 };
 
-const unreadable: ExtractedReceipt = { vendor: null, date: null, total_amount: null, currency: null, line_items: [] };
+const unreadable: Correction = { vendor: null, date: null, total_amount: null, currency: null, category: null, line_items: [] };
 
 describe("toDraft", () => {
   it("shows amounts to two decimals and keeps quantities as sent", () => {
@@ -21,7 +22,7 @@ describe("toDraft", () => {
   });
 
   it("shows unknown fields as empty", () => {
-    expect(toDraft(unreadable)).toEqual({ vendor: "", date: "", total_amount: "", currency: "", line_items: [] });
+    expect(toDraft(unreadable)).toEqual({ vendor: "", date: "", total_amount: "", currency: "", category: "", line_items: [] });
   });
 });
 
@@ -32,13 +33,17 @@ describe("toCorrection", () => {
   });
 
   it("trims, sends empty fields as null, capitalizes the currency and reads a decimal comma", () => {
-    const draft = { vendor: "  Bar  ", date: "", total_amount: " 12,50 ", currency: "usd", line_items: [
+    const draft = { vendor: "  Bar  ", date: "", total_amount: " 12,50 ", currency: "usd", category: "", line_items: [
       { ...newLineItem(), description: " Tea ", quantity: "0,5", unit_price: "" },
     ] };
 
-    expect(toCorrection(draft)).toEqual({ vendor: "Bar", date: null, total_amount: "12.50", currency: "USD", line_items: [
+    expect(toCorrection(draft)).toEqual({ vendor: "Bar", date: null, total_amount: "12.50", currency: "USD", category: null, line_items: [
       { description: "Tea", quantity: "0.5", unit_price: null },
     ] });
+  });
+
+  it("sends the chosen category", () => {
+    expect(toCorrection({ ...toDraft(receipt), category: "Software & Subscriptions" }).category).toBe("Software & Subscriptions");
   });
 
   it("leaves anything else for the backend to validate", () => {
@@ -59,5 +64,12 @@ describe("hasChanges", () => {
     expect(hasChanges({ ...saved, vendor: "Cafe Due" }, saved)).toBe(true);
     expect(hasChanges({ ...saved, line_items: [...saved.line_items, newLineItem()] }, saved)).toBe(true);
     expect(hasChanges({ ...saved, line_items: [] }, saved)).toBe(true);
+  });
+
+  it("sees a changed or cleared category", () => {
+    const saved = toDraft(receipt);
+
+    expect(hasChanges({ ...saved, category: "Travel" }, saved)).toBe(true);
+    expect(hasChanges({ ...saved, category: "" }, saved)).toBe(true);
   });
 });
