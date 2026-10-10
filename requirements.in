@@ -17,3 +17,6 @@ keyring
 
 # Google Gemini
 google-genai
+
+# Expense categorization (TF-IDF + logistic regression)
+scikit-learn

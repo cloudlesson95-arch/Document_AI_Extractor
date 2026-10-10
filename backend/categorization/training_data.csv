@@ -1,0 +1,261 @@
+vendor,items,category
+Starbucks,Caffe Latte; Blueberry Muffin,Meals
+Pret A Manger,Chicken Caesar Wrap; Sparkling Water,Meals
+McDonald's,Big Mac Meal; Medium Fries; Coca-Cola,Meals
+The Golden Fork Bistro,Grilled Salmon; Caesar Salad; Glass of House Wine; Service Charge,Meals
+Luigi's Trattoria,Margherita Pizza; Spaghetti Carbonara; Tiramisu,Meals
+Blue Bottle Coffee,Cappuccino; Almond Croissant,Meals
+Subway,Footlong Italian BMT; Cookie,Meals
+Chipotle Mexican Grill,Burrito Bowl; Chips & Guacamole,Meals
+Nando's,Half Chicken; Peri-Peri Fries; Bottomless Soft Drink,Meals
+Sakura Sushi Bar,Salmon Nigiri; California Roll; Miso Soup; Green Tea,Meals
+The Red Lion Pub,Fish and Chips; Pint of Lager,Meals
+Domino's Pizza,Large Pepperoni Pizza; Garlic Bread; Delivery Fee,Meals
+Corner Deli,Turkey Sandwich; Bag of Chips; Iced Tea,Meals
+Dunkin',Medium Iced Coffee; Glazed Donut,Meals
+Panera Bread,Broccoli Cheddar Soup; Half Turkey Sandwich,Meals
+Five Guys,Cheeseburger; Cajun Fries; Milkshake,Meals
+Thai Orchid Restaurant,Pad Thai; Green Curry; Jasmine Rice; Spring Rolls,Meals
+Le Petit Cafe,Espresso; Croque Monsieur,Meals
+Uber Eats,Chicken Tikka Masala; Garlic Naan; Delivery Fee; Service Fee,Meals
+Deliveroo,Poke Bowl; Kombucha; Delivery Fee,Meals
+Steakhouse 55,Ribeye Steak; Mashed Potatoes; Bottle of Red Wine,Meals
+Green Leaf Catering,Sandwich Platter; Fruit Platter; Coffee Service,Meals
+Joe's Diner,Pancake Stack; Side of Bacon; Coffee Refill,Meals
+Burger King,Whopper Meal; Onion Rings,Meals
+Wagamama,Chicken Katsu Curry; Gyoza; Fresh Juice,Meals
+Shake Shack,ShackBurger; Crinkle Cut Fries; Lemonade,Meals
+Olive Garden,Chicken Alfredo; Breadsticks; House Salad,Meals
+Taco Bell,Crunchwrap Supreme; Nachos; Large Fountain Drink,Meals
+KFC,Bucket 8 Pieces; Coleslaw; Gravy,Meals
+Itsu,Salmon Sushi Box; Miso Soup,Meals
+Leon,Chicken Burger Meal; Sweet Potato Fries,Meals
+Caffe Nero,Americano; Ham and Cheese Toastie,Meals
+Tim Hortons,Double Double Coffee; Timbits 10 Pack,Meals
+Hard Rock Cafe,Classic Burger; Draft Beer; Brownie Dessert,Meals
+Ocean Grill Seafood Restaurant,Lobster Roll; Clam Chowder; Dessert of the Day,Meals
+Bombay Palace Indian Restaurant,Lamb Rogan Josh; Pilau Rice; Mango Lassi,Meals
+Brasserie Lumiere,Steak Frites; Creme Brulee; Glass of Merlot; Service Charge,Meals
+Noodle House,Beef Pho; Spring Rolls; Jasmine Tea,Meals
+Ruby's Kitchen,Breakfast Platter; Fresh Orange Juice; Filter Coffee,Meals
+Pizza Express,American Hot Pizza; Dough Balls; Tiramisu,Meals
+Grubhub,Pad See Ew; Chicken Satay; Delivery Fee,Meals
+DoorDash,Chicken Burrito; Chips and Salsa; Delivery Fee; Service Fee,Meals
+Company Canteen,Lunch Special; Soup of the Day; Bottled Water,Meals
+Whole Foods Market,Organic Bananas; Greek Yogurt; Whole Wheat Bread; Free Range Eggs,Groceries
+Tesco,Semi Skimmed Milk 2L; Cheddar Cheese; Chicken Breast; Vine Tomatoes,Groceries
+Trader Joe's,Frozen Mandarin Orange Chicken; Avocados; Hummus,Groceries
+Kroger,Ground Beef 1 lb; Spaghetti; Marinara Sauce; Romaine Lettuce,Groceries
+Sainsbury's,Loose Bananas; Orange Juice 1L; Baked Beans; Sliced White Bread,Groceries
+Aldi,Butter 250g; Potatoes 2kg; Gala Apples; Long Grain Rice 1kg,Groceries
+Lidl,Still Mineral Water 6x1.5L; Bread Rolls; Ham Slices; Carrots,Groceries
+Safeway,Breakfast Cereal; Milk 1 Gallon; Strawberries; Paper Towels,Groceries
+Costco Wholesale,Kirkland Olive Oil; Rotisserie Chicken; Bottled Water 40 Pack,Groceries
+Walmart Supercenter,Great Value Large Eggs; Peanut Butter; Bananas; Sandwich Bread,Groceries
+Asda,Chicken Thighs; Broccoli; Frozen Peas; Natural Yoghurt,Groceries
+Waitrose,Smoked Salmon; Sourdough Loaf; Free Range Whole Chicken; Asparagus,Groceries
+Morrisons,Beef Mince 500g; Brown Onions; Mature Cheddar; Semi Skimmed Milk,Groceries
+Publix,Deli Turkey; Swiss Cheese; Red Grapes; Orange Juice,Groceries
+The Fresh Market,Fresh Basil; Mozzarella; Cherry Tomatoes; Olive Oil,Groceries
+Sprouts Farmers Market,Organic Spinach; Quinoa; Almond Milk,Groceries
+Carrefour,Baguette; Camembert; Apples; Bottled Water,Groceries
+City Grocery,Eggs; Whole Milk; Bread; Salted Butter,Groceries
+Green Valley Farm Shop,Potatoes; Carrots; Free Range Eggs; Local Honey,Groceries
+Instacart,Bananas; Chicken Breast; Basmati Rice; Delivery Fee; Service Fee,Groceries
+Target,Breakfast Cereal; 2% Milk; Granola Bars; Frozen Pizza,Groceries
+H-E-B,Flour Tortillas; Ground Beef; Shredded Cheddar; Salsa,Groceries
+Food Lion,Chicken Wings; Potato Chips; Soda 12 Pack,Groceries
+Corner Mini Market,Milk; Bread; Dozen Eggs; Bananas,Groceries
+Co-op Food,Sliced Ham; Tinned Tomatoes; Pasta; Toilet Roll 9 Pack,Groceries
+Albertsons,Russet Potatoes 5 lb; Large Eggs 18 ct; Shredded Mozzarella,Groceries
+Wegmans,Organic Strawberries; Fresh Atlantic Salmon; Baby Spinach; Sourdough Bread,Groceries
+Giant Food,Ground Turkey; Canned Black Beans; Brown Rice; Laundry Detergent,Groceries
+Meijer,Whole Milk 1 Gal; Cheddar Cheese Block; Bagels; Dish Soap,Groceries
+Iceland,Frozen Chips 1.5kg; Frozen Prawns; Ice Cream Tub,Groceries
+M&S Food,Chicken Tikka Ready Meal; Prawn Sandwich; Strawberries 400g,Groceries
+Spar,Milk 1 Pint; White Loaf; Crisps Multipack,Groceries
+Amazon Fresh,Avocados 4 ct; Almond Milk; Frozen Blueberries; Delivery Fee,Groceries
+Ocado,Chicken Fillets; Penne Pasta 500g; Chopped Tomatoes; Washing Up Liquid,Groceries
+Natural Grocers,Organic Kale; Brown Eggs; Coconut Oil,Groceries
+Piggly Wiggly,Pork Chops 2 lb; Sweet Corn; Biscuits,Groceries
+Neighborhood Supermarket,Rice 5 lb; Cooking Oil; Onions 3 lb; Garlic,Groceries
+Farmers Market Stall,Heirloom Tomatoes; Fresh Peaches; Sweet Corn,Groceries
+Ralphs,Chicken Drumsticks; Yogurt 4 Pack; Bananas per lb,Groceries
+Food 4 Less,Pinto Beans; Tortillas; Eggs; Milk,Groceries
+Netto,Toast Bread; Butter; Sliced Cheese; Apples 1kg,Groceries
+Tesco Express,Semi Skimmed Milk 1 Pint; Bananas; Penne Pasta,Groceries
+Delta Air Lines,Economy Ticket JFK to LAX; Checked Bag Fee,Travel
+United Airlines,Flight UA 123 SFO to ORD; Seat Selection,Travel
+Ryanair,Flight Dublin to London Stansted; Priority Boarding,Travel
+easyJet,Flight Gatwick to Barcelona; Large Cabin Bag,Travel
+British Airways,Return Flight London Heathrow to New York JFK,Travel
+Lufthansa,Flight Frankfurt to Munich Economy Light,Travel
+Amtrak,Northeast Regional Boston to New York; Business Class Upgrade,Travel
+Eurostar,London St Pancras to Paris Gare du Nord Standard Ticket,Travel
+Trainline,Advance Single Manchester to London Euston; Booking Fee,Travel
+Marriott Hotel,Room Charge 2 Nights; City Tax; Breakfast Buffet,Travel
+Hilton Garden Inn,King Room 1 Night; Occupancy Tax,Travel
+Holiday Inn Express,Standard Room 3 Nights; Room Tax,Travel
+Airbnb,Apartment Stay 4 Nights; Cleaning Fee; Service Fee,Travel
+Booking.com,Hotel Reservation 2 Nights; Taxes and Fees,Travel
+Premier Inn,Double Room 1 Night; Premier Inn Breakfast,Travel
+Hertz,Compact Car Rental 3 Days; Collision Damage Waiver,Travel
+Enterprise Rent-A-Car,Midsize SUV Rental 5 Days; Additional Driver,Travel
+Avis,Car Rental Weekly Rate; GPS Navigation Unit,Travel
+Expedia,Flight and Hotel Package; Travel Insurance,Travel
+Southwest Airlines,Wanna Get Away Fare Dallas to Houston; EarlyBird Check-In,Travel
+American Airlines,Flight AA 100 JFK to LHR; Extra Legroom Seat,Travel
+Greyhound,Bus Ticket Chicago to Detroit,Travel
+FlixBus,Coach Ticket Berlin to Prague; Seat Reservation,Travel
+Ibis Hotel,Single Room 1 Night; Tourist Tax,Travel
+Hyatt Regency,Deluxe King Room 2 Nights; Resort Fee,Travel
+JetBlue,Blue Fare Boston to Fort Lauderdale; Even More Space Seat,Travel
+Air Canada,Flight Toronto to Vancouver Economy,Travel
+KLM,Flight Amsterdam to London; Seat Reservation,Travel
+Emirates,Flight Dubai to London Economy Saver,Travel
+Hampton Inn,Queen Room 2 Nights; Hotel Tax,Travel
+Travelodge,Double Room 1 Night,Travel
+Best Western,Standard Room 1 Night; Breakfast Included,Travel
+Sixt,Premium Car Rental 2 Days; Young Driver Fee,Travel
+Hotels.com,Hotel Booking 3 Nights; Taxes,Travel
+Megabus,Coach Ticket London to Manchester,Travel
+Vrbo,Vacation Rental 5 Nights; Cleaning Fee,Travel
+Uber,Trip Fare; Booking Fee,Transport
+Lyft,Ride Fare 8.4 mi; Service Fee,Transport
+Bolt,Ride 5.2 km,Transport
+Yellow Cab Company,Taxi Fare; Airport Surcharge,Transport
+Addison Lee,Executive Car Journey; Waiting Time,Transport
+Shell,Unleaded Petrol 40.12 L,Transport
+BP,Diesel 52.3 L; Car Wash,Transport
+Chevron,Regular Unleaded 12.5 gal,Transport
+Exxon,Premium Gasoline 10.2 gal,Transport
+Esso,Unleaded Fuel; Screenwash,Transport
+Texaco,Diesel Fuel,Transport
+Q-Park,Parking 3 Hours,Transport
+NCP Car Parks,All Day Parking,Transport
+SpotHero,Garage Parking Reservation,Transport
+City Parking Meter,Street Parking 2 Hours,Transport
+Transport for London,Oyster Card Top Up,Transport
+MTA New York City Transit,MetroCard 7-Day Unlimited Ride,Transport
+BART,Clipper Card Reload,Transport
+E-ZPass,Toll Plaza Charge,Transport
+Lime,E-Scooter Ride 18 min; Unlock Fee,Transport
+Citi Bike,Day Pass,Transport
+Chicago Transit Authority,Ventra 1-Day Pass,Transport
+FREE NOW,Taxi Ride,Transport
+Valero,Unleaded 87 Gas; Basic Car Wash,Transport
+Tesla Supercharger,Charging Session 45 kWh,Transport
+Circle K,Unleaded Regular 9.8 gal,Transport
+Speedway,Diesel 15.0 gal,Transport
+Marathon,Regular Unleaded Fuel,Transport
+ParkMobile,Parking Session Zone 1234; Transaction Fee,Transport
+JustPark,Driveway Parking 1 Day,Transport
+Metro Transit,Bus Fare; Transfer,Transport
+Grab,GrabCar Ride; Platform Fee,Transport
+Curb,Taxi Ride; Credit Card Fee,Transport
+Dart Charge,Crossing Charge,Transport
+ChargePoint,EV Charging Session; Idle Fee,Transport
+Jiffy Lube,Oil Change; Wiper Blades,Transport
+Staples,Printer Paper A4 5 Reams; Black Ink Cartridge; Stapler,Office Supplies
+Office Depot,Ballpoint Pens 12 Pack; Sticky Notes; File Folders,Office Supplies
+OfficeMax,Copy Paper Case; Binder Clips; Highlighters,Office Supplies
+Ryman,Spiral Notebook A5; Gel Pens; Desk Organiser,Office Supplies
+Viking Direct,Toner Cartridge HP 26A; DL Envelopes,Office Supplies
+Amazon,USB-C Hub; Wireless Mouse; Spiral Notebook,Office Supplies
+Best Buy,Wireless Keyboard; HDMI Cable; Webcam,Office Supplies
+WHSmith,Lever Arch Files; Subject Dividers; Printer Labels,Office Supplies
+Uline,Shipping Boxes; Packing Tape; Bubble Wrap,Office Supplies
+The UPS Store,Printing 50 Pages; Lamination; Shipping Label,Office Supplies
+FedEx Office,Color Copies 100; Spiral Binding,Office Supplies
+IKEA,Desk Lamp; Office Chair; Monitor Stand,Office Supplies
+Paperchase,Notebook; Pencil Case; Washi Tape,Office Supplies
+Muji,Gel Ink Pens; Notebook; Acrylic Desk Organizer,Office Supplies
+Dell,27 inch Monitor; Docking Station,Office Supplies
+Apple Store,Magic Mouse; USB-C Charger,Office Supplies
+Currys,Laser Printer; USB Flash Drive 64GB,Office Supplies
+Walmart,Printer Paper; Scissors; Tape Dispenser,Office Supplies
+Target,Composition Notebooks; Pencils; Dry Erase Markers,Office Supplies
+Print Shop,Business Cards 500; A5 Flyers,Office Supplies
+Moleskine,Classic Notebook Large; Rollerball Pen,Office Supplies
+Pens Plus,Whiteboard Markers; Eraser; Correction Tape,Office Supplies
+Brother,TN-2420 Toner Cartridge,Office Supplies
+Logitech,MX Keys Keyboard; MX Master Mouse,Office Supplies
+Rymans,A4 Ring Binder; Punched Pockets; Hole Punch,Office Supplies
+Lyreco,A4 Copier Paper 5 Boxes; Staples Box,Office Supplies
+Avery,Address Labels; Name Badges,Office Supplies
+Newegg,Ergonomic Keyboard; Monitor Arm,Office Supplies
+B&H Photo,Webcam; USB Microphone,Office Supplies
+Fellowes,Paper Shredder; Laminating Pouches,Office Supplies
+Royal Mail,First Class Stamps; Parcel Postage,Office Supplies
+Michaels,Poster Board; Glue Sticks; Permanent Markers,Office Supplies
+Adobe,Creative Cloud All Apps Monthly Subscription,Software & Subscriptions
+Microsoft,Microsoft 365 Business Standard Annual,Software & Subscriptions
+Google Workspace,Business Starter 3 Users Monthly,Software & Subscriptions
+Slack Technologies,Pro Plan Monthly 5 Members,Software & Subscriptions
+Zoom Video Communications,Zoom Pro Monthly,Software & Subscriptions
+GitHub,Copilot Business; Team Plan Seats,Software & Subscriptions
+Atlassian,Jira Software Standard Monthly,Software & Subscriptions
+Notion Labs,Notion Plus Annual Plan,Software & Subscriptions
+Dropbox,Dropbox Plus 2TB Yearly,Software & Subscriptions
+Amazon Web Services,AWS Usage Charges; EC2 Instances; S3 Storage,Software & Subscriptions
+Figma,Professional Plan Editor Seat,Software & Subscriptions
+Canva,Canva Pro Monthly,Software & Subscriptions
+JetBrains,IntelliJ IDEA Ultimate Annual License,Software & Subscriptions
+1Password,Teams Starter Pack Annual,Software & Subscriptions
+Spotify,Premium Individual Monthly,Software & Subscriptions
+Netflix,Standard Plan Monthly,Software & Subscriptions
+Apple,iCloud+ 200GB Monthly,Software & Subscriptions
+OpenAI,ChatGPT Plus Subscription,Software & Subscriptions
+Grammarly,Grammarly Premium Annual,Software & Subscriptions
+DigitalOcean,Droplet Usage; Volume Storage,Software & Subscriptions
+Squarespace,Website Plan Annual; Custom Domain,Software & Subscriptions
+GoDaddy,Domain Registration .com 1 Year; SSL Certificate,Software & Subscriptions
+Mailchimp,Standard Plan 1500 Contacts,Software & Subscriptions
+Salesforce,Sales Cloud Professional User License,Software & Subscriptions
+LinkedIn,Premium Business Monthly,Software & Subscriptions
+The New York Times,Digital Subscription Monthly,Software & Subscriptions
+Trello,Standard Plan Annual,Software & Subscriptions
+HubSpot,Marketing Hub Starter Monthly,Software & Subscriptions
+Shopify,Basic Plan Monthly; App Subscriptions,Software & Subscriptions
+Vercel,Pro Plan Monthly; Additional Bandwidth,Software & Subscriptions
+Heroku,Eco Dynos; Postgres Mini,Software & Subscriptions
+Calendly,Standard Plan Annual,Software & Subscriptions
+YouTube Premium,Monthly Membership,Software & Subscriptions
+Audible,Monthly Credit Membership,Software & Subscriptions
+Evernote,Personal Plan Yearly,Software & Subscriptions
+Cloudflare,Pro Plan; Workers Paid,Software & Subscriptions
+Verizon Wireless,Unlimited Monthly Plan; Device Payment,Utilities & Phone
+AT&T,Wireless Service; Internet 300 Mbps,Utilities & Phone
+T-Mobile,Magenta Plan 2 Lines,Utilities & Phone
+Vodafone,Monthly Mobile Plan; Roaming Charges,Utilities & Phone
+EE,Pay Monthly SIM Plan,Utilities & Phone
+BT,Broadband and Line Rental; Call Charges,Utilities & Phone
+Comcast Xfinity,Internet 400 Mbps; Modem Rental,Utilities & Phone
+Spectrum,Internet Service; WiFi Router,Utilities & Phone
+Virgin Media,Broadband M250; Home Phone Line,Utilities & Phone
+British Gas,Gas Supply Quarterly; Standing Charge,Utilities & Phone
+EDF Energy,Electricity 342 kWh; Standing Charge,Utilities & Phone
+Con Edison,Electric Service; Gas Service; Delivery Charges,Utilities & Phone
+Pacific Gas and Electric,Electricity Usage 520 kWh; Gas Usage 30 Therms,Utilities & Phone
+Thames Water,Water and Sewerage Charges,Utilities & Phone
+Octopus Energy,Electricity Unit Rate; Standing Charge,Utilities & Phone
+Duke Energy,Residential Electric Service,Utilities & Phone
+Sky,Superfast Broadband; Talk Anytime,Utilities & Phone
+Google Fi,Unlimited Plus Monthly Plan,Utilities & Phone
+Three,Pay Monthly Data Plan 100GB,Utilities & Phone
+O2,Airtime Plan; Phone Insurance,Utilities & Phone
+City Water Department,Water Usage 12 CCF; Sewer Charge,Utilities & Phone
+Waste Management,Trash Pickup Monthly,Utilities & Phone
+Mint Mobile,3 Month Unlimited Prepaid Plan,Utilities & Phone
+Starlink,Residential Internet Monthly,Utilities & Phone
+Dominion Energy,Monthly Electric Bill,Utilities & Phone
+Southern California Edison,Electric Bill; Delivery Charges,Utilities & Phone
+Xcel Energy,Natural Gas Service; Electricity Service,Utilities & Phone
+Cox Communications,Internet Preferred 500; Panoramic WiFi,Utilities & Phone
+Ting Mobile,Monthly Phone Service; Data Usage,Utilities & Phone
+Scottish Power,Electricity Bill; Standing Charge,Utilities & Phone
+Severn Trent,Water Supply; Wastewater Services,Utilities & Phone
+E.ON Next,Dual Fuel Monthly Bill,Utilities & Phone
+Cricket Wireless,Unlimited Monthly Plan,Utilities & Phone
+Telstra,Mobile Plan; NBN Internet,Utilities & Phone
+Republic Services,Waste Collection Quarterly; Recycling,Utilities & Phone
