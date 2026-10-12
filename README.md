@@ -113,11 +113,34 @@ Every setting has a working local default. The backend reads environment variabl
 | `S3_BUCKET`, `DYNAMODB_RECORDS_TABLE`, `DYNAMODB_QUOTA_TABLE` | empty | Where the `aws` provider keeps them; AWS credentials and the region come from boto3's usual sources |
 | `NEXT_PUBLIC_API_URL` (frontend) | `http://127.0.0.1:8000` | Backend URL, baked into the frontend at build time |
 
+## Deploy to AWS
+
+The backend runs on AWS Lambda as a container image behind a public Function URL, and the frontend on Vercel. You need the AWS CLI v2 signed in to your account, the code in a GitHub repository, and a Vercel account. The PowerShell scripts in `infra/aws/` name every AWS resource after `-AppName` (default `docai`), so other apps in the same account are never touched.
+
+1. **AWS resources and roles**, once (safe to rerun; rerun it after creating or renaming the GitHub repository):
+   ```powershell
+   .\infra\aws\setup.ps1 -GitHubRepo <owner>/<repo>
+   ```
+   It asks for `GOOGLE_API_KEY`, which it stores in Secrets Manager as `document-ai-extractor/GOOGLE_API_KEY`, and prints the GitHub values below.
+2. **GitHub** (Settings → Secrets and variables → Actions): the secret `AWS_ROLE_TO_ASSUME`, and the variables `AWS_REGION`, `APP_NAME` and `CORS_ALLOW_ORIGINS`.
+3. **Backend**: Actions → *Deploy to AWS* → Run workflow, on `main`. It runs the tests, builds and deploys the image, and checks that `/health` reports the new commit; its summary shows the API URL.
+4. **Frontend**: import the repository into Vercel with the root directory `web`, set `NEXT_PUBLIC_API_URL` to the API URL, and deploy.
+
+| Value | Comes from | Goes to |
+|---|---|---|
+| Deploy role ARN | `setup.ps1` output | GitHub secret `AWS_ROLE_TO_ASSUME` |
+| Region and app name | `setup.ps1` parameters | GitHub variables `AWS_REGION`, `APP_NAME` |
+| Frontend URL | your Vercel project's name: `https://<project>.vercel.app` | GitHub variable `CORS_ALLOW_ORIGINS` with `http://localhost:3000`, separated by spaces; the next backend deploy applies it |
+| API URL | the deploy workflow's summary | Vercel's `NEXT_PUBLIC_API_URL`; the next frontend build bakes it in |
+
+`.\infra\aws\teardown.ps1` deletes all of it after asking; `-KeepSecret` keeps the Gemini key, and `-DeleteOidcProvider` also removes the account's GitHub sign-in when no other app's role uses it.
+
 ## Known limitations
 
 - The API has no authentication: anyone who can reach it can upload (up to the per-minute and daily limits), list, read and correct every receipt. CORS only controls which websites can call it from a browser, not who can call it; `serve` listens on `127.0.0.1` by default for that reason.
 - The category classifier is trained on 260 synthetic English receipts in `backend/categorization/training_data.csv`. It reaches 90% cross-validated accuracy on them; real receipts score lower. A receipt it is less than 40% sure about stays uncategorized, and most non-English receipts do.
 - On the Gemini API free tier, Google may use submitted documents to improve its products. Don't extract receipts that show personal data such as card numbers, names or addresses.
+- Only the Vercel production URL is in `CORS_ALLOW_ORIGINS`, so Vercel's preview deployments can't call the deployed API.
 
 ## License
 
