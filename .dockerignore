@@ -1,0 +1,6 @@
+# The image needs only the backend and its lock file. Allow-listing them keeps everything else out of the build
+# context: .env, the local database and uploads, logs, the venv, web/ and git history.
+*
+!backend/
+!requirements.txt
+**/__pycache__
