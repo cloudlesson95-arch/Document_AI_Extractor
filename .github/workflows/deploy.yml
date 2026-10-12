@@ -1,0 +1,154 @@
+name: Deploy to AWS
+
+# Manual only: Actions -> "Deploy to AWS" -> Run workflow, on main. Needs infra/aws/setup.ps1 to have run once, and
+# the repository secret and variables it prints.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write  # OIDC: GitHub's token is exchanged for the deploy role's short-lived AWS credentials
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up uv and Python 3.13
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+        with:
+          version: "0.11.26"
+          python-version: "3.13"
+          activate-environment: "true"
+
+      - name: Install the locked dependencies
+        run: uv pip sync requirements.txt requirements-dev.txt
+
+      - name: Run the tests
+        env:
+          LOG_TO_FILE: "false"
+        run: python -m pytest -q -W error
+
+  deploy:
+    name: Build the image and deploy it to Lambda
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      APP_NAME: ${{ vars.APP_NAME }}
+      CORS_ALLOW_ORIGINS: ${{ vars.CORS_ALLOW_ORIGINS }}
+    steps:
+      - name: Check the repository variables
+        run: |
+          for name in AWS_REGION APP_NAME CORS_ALLOW_ORIGINS; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository variable $name is not set; infra/aws/setup.ps1 prints the values"
+              exit 1
+            fi
+          done
+          if [[ "$CORS_ALLOW_ORIGINS" == *,* ]]; then
+            echo "::error::CORS_ALLOW_ORIGINS must list the frontend's origins separated by spaces, not commas"
+            exit 1
+          fi
+
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Get AWS credentials for the deploy role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd  # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true  # the logs of a public repository are public
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd  # v2.1.7
+
+      - name: Name the resources
+        # The names infra/aws/common.ps1 (Get-ResourceNames) gives them, from APP_NAME and the account
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          {
+            echo "FUNCTION_NAME=$APP_NAME-api"
+            echo "IMAGE=$REGISTRY/$APP_NAME-api:$GITHUB_SHA"
+            echo "LAMBDA_ROLE_ARN=arn:aws:iam::$ACCOUNT:role/$APP_NAME-lambda-role"
+            echo "S3_BUCKET=$APP_NAME-uploads-$ACCOUNT"
+            echo "DYNAMODB_RECORDS_TABLE=$APP_NAME-receipts"
+            echo "DYNAMODB_QUOTA_TABLE=$APP_NAME-upload-counts"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and push the image
+        # One x86-64 image without attestations: Lambda refuses multi-manifest image indexes
+        run: |
+          docker build --platform linux/amd64 --provenance=false --sbom=false --tag "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Create or update the Lambda function
+        run: |
+          # JSON rather than the CLI's Variables={...} shorthand, so no value needs escaping
+          jq -n --arg bucket "$S3_BUCKET" --arg records "$DYNAMODB_RECORDS_TABLE" --arg quota "$DYNAMODB_QUOTA_TABLE" \
+                --arg cors "$CORS_ALLOW_ORIGINS" --arg revision "$GITHUB_SHA" \
+            '{Variables: {CLOUD_PROVIDER: "aws", SECRET_BACKEND: "aws_secretsmanager", LOG_TO_FILE: "false",
+                          S3_BUCKET: $bucket, DYNAMODB_RECORDS_TABLE: $records, DYNAMODB_QUOTA_TABLE: $quota,
+                          CORS_ALLOW_ORIGINS: $cors, APP_REVISION: $revision}}' > "$RUNNER_TEMP/environment.json"
+          # 240 s matches the frontend's request timeout: up to three model calls of 60 s, plus a cold start
+          settings=(--timeout 240 --memory-size 2048 --environment "file://$RUNNER_TEMP/environment.json")
+          if aws lambda get-function --function-name "$FUNCTION_NAME" > /dev/null 2>&1; then
+            aws lambda update-function-code --function-name "$FUNCTION_NAME" --image-uri "$IMAGE" > /dev/null
+            aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME"
+            aws lambda update-function-configuration --function-name "$FUNCTION_NAME" "${settings[@]}" > /dev/null
+            aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME"
+          else
+            aws lambda create-function --function-name "$FUNCTION_NAME" --package-type Image --code "ImageUri=$IMAGE" \
+              --role "$LAMBDA_ROLE_ARN" --architectures x86_64 "${settings[@]}" > /dev/null
+            aws lambda wait function-active-v2 --function-name "$FUNCTION_NAME"
+          fi
+
+      - name: Give the function a public URL
+        # CORS is handled by FastAPI, so the Function URL's own CORS stays off. A public URL needs both permissions.
+        run: |
+          if ! aws lambda get-function-url-config --function-name "$FUNCTION_NAME" > /dev/null 2>&1; then
+            aws lambda create-function-url-config --function-name "$FUNCTION_NAME" --auth-type NONE > /dev/null
+          fi
+          add_permission() {  # a statement that's already there is fine
+            if ! output=$(aws lambda add-permission --function-name "$FUNCTION_NAME" "$@" 2>&1); then
+              [[ "$output" == *ResourceConflictException* ]] || { echo "$output"; return 1; }
+            fi
+          }
+          add_permission --statement-id FunctionUrlPublicAccess --action lambda:InvokeFunctionUrl \
+            --principal "*" --function-url-auth-type NONE
+          add_permission --statement-id FunctionUrlInvokeFunction --action lambda:InvokeFunction \
+            --principal "*" --invoked-via-function-url
+          url=$(aws lambda get-function-url-config --function-name "$FUNCTION_NAME" --query FunctionUrl --output text)
+          echo "FUNCTION_URL=${url%/}" >> "$GITHUB_ENV"
+
+      - name: Check that the new revision answers
+        run: |
+          for _ in $(seq 1 24); do
+            if curl -fsS "$FUNCTION_URL/health" | jq -e --arg revision "$GITHUB_SHA" '.revision == $revision' > /dev/null; then
+              {
+                echo "### Deployed \`$GITHUB_SHA\`"
+                echo "API URL (the frontend's \`NEXT_PUBLIC_API_URL\`): $FUNCTION_URL"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$FUNCTION_URL/health didn't report revision $GITHUB_SHA within 2 minutes"
+          exit 1
