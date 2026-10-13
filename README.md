@@ -4,7 +4,7 @@ Upload a photo or PDF of a receipt or invoice, and a vision-capable model extrac
 
 Storage, the database and the extraction model each sit behind a small interface, and one setting, `CLOUD_PROVIDER`, selects the implementation: `local`, `aws` or `azure`.
 
-> 🚧 Work in progress: Phases 0–5 (scaffold, extraction, storage, API, frontend, categorization) are done, Phase 6 (AWS) is in progress, and Phase 7 is planned.
+> 🚧 Work in progress: Phases 0–6 (scaffold, extraction, storage, API, frontend, categorization, AWS deployment) are done; Phase 7 (Azure) is planned.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ Next.js (web/) ──HTTP──▶ FastAPI (backend/)
 | 3. API | ✅ Done | Upload and extract, search and filter, the original file for review, and corrections that record whether the model got something wrong |
 | 4. Frontend | ✅ Done | An upload page that shrinks photos in the browser, a searchable receipts table, and a review page showing the original next to the editable fields |
 | 5. Categorization | ✅ Done | A TF-IDF and logistic-regression classifier suggests an expense category from the vendor and line items; receipts it isn't confident about stay uncategorized |
-| 6. AWS | 🚧 In progress | S3 and DynamoDB implementations, the Gemini key in Secrets Manager, and a daily upload limit shared by every instance; Lambda (container image) behind a Function URL |
+| 6. AWS | ✅ Done | S3 and DynamoDB implementations, the Gemini key in Secrets Manager, and a daily upload limit shared by every instance; the backend on Lambda (container image) behind a Function URL, deployed by a GitHub Actions workflow, and the frontend on Vercel |
 | 7. Azure | Planned | Blob Storage, Table Storage and Azure OpenAI implementations; the same image on Container Apps |
 
 ## Local setup
