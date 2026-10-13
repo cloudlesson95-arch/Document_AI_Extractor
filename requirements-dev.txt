@@ -26,6 +26,8 @@ charset-normalizer==3.5.2
     # via
     #   -c requirements.txt
     #   requests
+cloudpickle==3.1.2
+    # via joblib
 colorama==0.4.6 ; sys_platform == 'win32'
     # via pytest
 cryptography==50.0.2
@@ -57,10 +59,18 @@ jmespath==1.1.0
     #   -c requirements.txt
     #   boto3
     #   botocore
+joblib==1.6.0
+    # via scikit-learn
 markupsafe==3.0.4
     # via werkzeug
 moto==5.2.3
     # via -r requirements-dev.in
+narwhals==2.26.0
+    # via scikit-learn
+numpy==2.5.3
+    # via
+    #   scikit-learn
+    #   scipy
 packaging==26.3
     # via pytest
 pluggy==1.6.0
@@ -98,10 +108,16 @@ s3transfer==0.19.2
     # via
     #   -c requirements.txt
     #   boto3
+scikit-learn==1.9.1
+    # via -r requirements-dev.in
+scipy==1.18.1
+    # via scikit-learn
 six==1.17.0
     # via
     #   -c requirements.txt
     #   python-dateutil
+threadpoolctl==3.7.0
+    # via scikit-learn
 truststore==0.10.4 ; sys_platform != 'emscripten'
     # via
     #   httpcore2

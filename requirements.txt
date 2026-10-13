@@ -27,8 +27,6 @@ charset-normalizer==3.5.2
     # via requests
 click==8.5.0
     # via uvicorn
-cloudpickle==3.1.2
-    # via joblib
 cryptography==50.0.2
     # via
     #   google-auth
@@ -72,20 +70,12 @@ jmespath==1.1.0
     # via
     #   boto3
     #   botocore
-joblib==1.6.0
-    # via scikit-learn
 keyring==25.7.0
     # via -r requirements.in
 more-itertools==11.1.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-narwhals==2.26.0
-    # via scikit-learn
-numpy==2.5.3
-    # via
-    #   scikit-learn
-    #   scipy
 opentelemetry-api==1.45.1
     # via fastapi
 pyasn1==0.6.4
@@ -120,10 +110,6 @@ requests==2.34.2
     #   google-genai
 s3transfer==0.19.2
     # via boto3
-scikit-learn==1.9.1
-    # via -r requirements.in
-scipy==1.18.1
-    # via scikit-learn
 secretstorage==3.5.0 ; sys_platform == 'linux'
     # via keyring
 six==1.17.0
@@ -134,8 +120,6 @@ starlette==1.7.0
     # via fastapi
 tenacity==9.1.4
     # via google-genai
-threadpoolctl==3.7.0
-    # via scikit-learn
 typing-extensions==4.16.0
     # via
     #   anyio

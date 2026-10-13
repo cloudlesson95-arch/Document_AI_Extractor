@@ -18,8 +18,5 @@ keyring
 # Google Gemini
 google-genai
 
-# Expense categorization (TF-IDF + logistic regression)
-scikit-learn
-
 # AWS: S3, DynamoDB and Secrets Manager (CLOUD_PROVIDER=aws)
 boto3
