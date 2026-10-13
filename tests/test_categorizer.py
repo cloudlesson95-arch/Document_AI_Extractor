@@ -95,16 +95,21 @@ def test_receipt_text_joins_the_vendor_and_items_and_skips_blanks():
     assert receipt_text(None, []) == ""
 
 
-def test_get_categorizer_trains_once():
+def test_get_categorizer_loads_once():
     assert get_categorizer() is get_categorizer()
 
 
-def test_importing_the_classifier_does_not_load_scikit_learn():
-    # Fresh interpreter: this test module imports scikit-learn itself. The API imports the classifier at startup,
-    # and scikit-learn takes about a second to load, so only the first upload should pay for it.
-    code = "import sys, backend.categorization.classifier\nprint('sklearn' in sys.modules)"
-    env = {**os.environ, "LOG_TO_FILE": "false"}
+def test_categorizing_loads_neither_scikit_learn_nor_numpy():
+    # Fresh interpreter: this test module imports both itself. The deployed image doesn't have them, and on a cold
+    # Lambda instance loading them took 26 s, so predicting must work from model.json alone.
+    code = (
+        "import sys\nfrom backend.categorization.classifier import ExpenseCategorizer\n"
+        "from backend.extraction.schema import ExtractedReceipt\n"
+        "receipt = ExtractedReceipt(vendor='Costa Coffee', date=None, total_amount=None, currency=None, line_items=[])\n"
+        "print(ExpenseCategorizer().predict(receipt), sorted({'sklearn', 'numpy', 'scipy'} & set(sys.modules)))"
+    )
+    env = {**os.environ, "LOG_TO_FILE": "false", "LOG_TO_CONSOLE": "false"}
 
     result = subprocess.run([sys.executable, "-c", code], cwd=REPO_ROOT, env=env, capture_output=True, text=True, check=True)
 
-    assert result.stdout.strip() == "False"
+    assert result.stdout.strip() == "Meals []"

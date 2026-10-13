@@ -24,6 +24,10 @@ def main():
     extract_parser = subparsers.add_parser("extract", help="Extract fields from a receipt or invoice file")
     extract_parser.add_argument("path", help="Path to a JPEG, PNG, WebP or PDF file")
 
+    # Categorization commands
+    subparsers.add_parser("export-model", help="Train the expense categorizer on its training data and write "
+                                               "backend/categorization/model.json (needs requirements-dev.txt)")
+
     args = parser.parse_args()
 
     if args.command == "serve":
@@ -69,6 +73,17 @@ def main():
         except ExtractionError as e:
             sys.exit(f"Extraction failed: {e}")
         print(receipt.model_dump_json(indent=2))
+
+    elif args.command == "export-model":
+        import sys
+        from .categorization.classifier import export_model
+        from .categorization.model import MODEL_PATH
+        try:
+            model = export_model()
+        except ModuleNotFoundError as e:
+            sys.exit(f"export-model trains with scikit-learn ({e}): run uv pip sync requirements.txt requirements-dev.txt")
+        features = sum(len(vectorizer["idf"]) for vectorizer in model["vectorizers"])
+        print(f"Wrote {MODEL_PATH} ({features:,} features, {len(model['classes'])} categories). Commit it.")
 
     else:
         parser.print_help()

@@ -29,7 +29,7 @@ Next.js (web/) ──HTTP──▶ FastAPI (backend/)
 | 2. Storage | ✅ Done | `FileStorage` (disk) and `RecordStore` (SQLite) behind interfaces with shared contract tests; `backend/providers.py` picks the implementations from `CLOUD_PROVIDER` |
 | 3. API | ✅ Done | Upload and extract, search and filter, the original file for review, and corrections that record whether the model got something wrong |
 | 4. Frontend | ✅ Done | An upload page that shrinks photos in the browser, a searchable receipts table, and a review page showing the original next to the editable fields |
-| 5. Categorization | ✅ Done | A TF-IDF and logistic-regression classifier suggests an expense category from the vendor and line items; receipts it isn't confident about stay uncategorized |
+| 5. Categorization | ✅ Done | A TF-IDF and logistic-regression classifier suggests an expense category from the vendor and line items; receipts it isn't confident about stay uncategorized. It's trained with scikit-learn and exported to `model.json`, which the app scores in plain Python |
 | 6. AWS | ✅ Done | S3 and DynamoDB implementations, the Gemini key in Secrets Manager, and a daily upload limit shared by every instance; the backend on Lambda (container image) behind a Function URL, deployed by a GitHub Actions workflow, and the frontend on Vercel |
 | 7. Azure | Planned | Blob Storage, Table Storage and Azure OpenAI implementations; the same image on Container Apps |
 
@@ -46,7 +46,7 @@ python -m backend.app set-secret GOOGLE_API_KEY   # stored in the OS keyring; pr
 python -m backend.app serve --reload              # http://127.0.0.1:8000/docs
 ```
 
-Run the backend from the repo root as a module (`python -m backend.app`), not as a script. Other commands: `extract <file>` prints the fields extracted from a JPEG, PNG, WebP or PDF as JSON; `get-secret <name>` prints a masked value; `serve --host <host> --port <port>`.
+Run the backend from the repo root as a module (`python -m backend.app`), not as a script. Other commands: `extract <file>` prints the fields extracted from a JPEG, PNG, WebP or PDF as JSON; `get-secret <name>` prints a masked value; `serve --host <host> --port <port>`; `export-model` retrains the expense categorizer and writes `backend/categorization/model.json`. Run it after editing `training_data.csv` and commit the file: the tests fail while it's out of date.
 
 With the backend running, `http://127.0.0.1:8000/docs` describes every endpoint and can call them:
 
@@ -138,7 +138,7 @@ The backend runs on AWS Lambda as a container image behind a public Function URL
 ## Known limitations
 
 - The API has no authentication: anyone who can reach it can upload (up to the per-minute and daily limits), list, read and correct every receipt. CORS only controls which websites can call it from a browser, not who can call it; `serve` listens on `127.0.0.1` by default for that reason.
-- The category classifier is trained on 260 synthetic English receipts in `backend/categorization/training_data.csv`. It reaches 90% cross-validated accuracy on them; real receipts score lower. A receipt it is less than 40% sure about stays uncategorized, and most non-English receipts do.
+- The category classifier is trained on 260 synthetic English receipts in `backend/categorization/training_data.csv` (with `export-model`; the app only reads the exported `model.json`). It reaches 90% cross-validated accuracy on them; real receipts score lower. A receipt it is less than 40% sure about stays uncategorized, and most non-English receipts do.
 - On the Gemini API free tier, Google may use submitted documents to improve its products. Don't extract receipts that show personal data such as card numbers, names or addresses.
 - Only the Vercel production URL is in `CORS_ALLOW_ORIGINS`, so Vercel's preview deployments can't call the deployed API.
 
