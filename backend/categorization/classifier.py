@@ -54,6 +54,13 @@ def build_model():
     )
 
 
+def _math_threads() -> str:
+    """The threads each loaded math library uses, e.g. "openblas 1, openmp 1" (OMP_NUM_THREADS and similar set them)."""
+    from threadpoolctl import threadpool_info  # installed with scikit-learn
+
+    return ", ".join(sorted({f"{lib['internal_api']} {lib['num_threads']}" for lib in threadpool_info()}))
+
+
 class ExpenseCategorizer:
     """Predicts a receipt's expense category from its vendor and line items with a classical classifier.
 
@@ -63,9 +70,15 @@ class ExpenseCategorizer:
     def __init__(self):
         started = time.perf_counter()
         texts, categories = load_training_data()
-        self.model = build_model().fit(texts, categories)
+        read = time.perf_counter()
+        model = build_model()  # the first call imports scikit-learn
+        imported = time.perf_counter()
+        self.model = model.fit(texts, categories)
+        # Each step's time separately: on a cold Lambda instance the total was 22-28 s, and the parts tell why
         logger.info(f"[Categorizer] Loaded scikit-learn and trained on {len(texts)} receipts "
-                    f"in {time.perf_counter() - started:.2f} s")
+                    f"in {time.perf_counter() - started:.2f} s (reading {read - started:.2f} s, "
+                    f"importing {imported - read:.2f} s, training {time.perf_counter() - imported:.2f} s; "
+                    f"{_math_threads()})")
 
     def predict(self, receipt: ExtractedReceipt) -> Category | None:
         """The most likely category, or None if the receipt has no text or no category is likely enough."""
