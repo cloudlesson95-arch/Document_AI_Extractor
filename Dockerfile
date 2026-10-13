@@ -9,10 +9,17 @@ ENV AWS_LWA_PORT=8000 \
     PYTHONIOENCODING=utf-8 \
     PYTHONUNBUFFERED=1
 
+# One thread for NumPy's and scikit-learn's math (OpenBLAS and OpenMP). They start a thread per core they see, but an
+# instance gets only about one CPU's worth of time, and the extra threads made the categorizer's training take
+# 12-28 s instead of 0.2 s
+ENV OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1
+
 WORKDIR /app
 
-# Lambda runs the container as its own unprivileged user; other hosts get this one (see USER) instead of root
-RUN useradd --system --uid 10001 --no-create-home app
+# Lambda runs the container as its own unprivileged user; other hosts get this one (see USER) instead of root.
+# The base image ships the standard library without bytecode, which Python would otherwise compile on every cold start.
+RUN useradd --system --uid 10001 --no-create-home app && python -m compileall -q /usr/local/lib/python3.13
 
 # Bytecode is compiled into the image: Lambda's disk is read-only, so Python can't cache .pyc files there, and every
 # cold start would compile scikit-learn again (the first upload would take about 4 s longer instead of 1.3 s).
