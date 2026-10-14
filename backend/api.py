@@ -38,9 +38,6 @@ app = FastAPI(
 async def answer_unexpected_errors_as_json(request: Request, call_next):
     try:
         return await call_next(request)
-    except NotImplementedError as e:  # a CLOUD_PROVIDER whose implementations arrive in a later phase
-        logger.error(f"[API] {request.method} {request.url.path}: {e}")
-        return JSONResponse({"detail": str(e)}, status_code=503)
     except Exception:
         logger.exception(f"[API] {request.method} {request.url.path} failed")
         return JSONResponse({"detail": "Internal server error"}, status_code=500)
