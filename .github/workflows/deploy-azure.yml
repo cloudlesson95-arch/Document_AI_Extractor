@@ -1,0 +1,157 @@
+name: Deploy to Azure
+
+# Manual only: Actions -> "Deploy to Azure" -> Run workflow, on main. Needs infra/azure/setup.ps1 to have run once, and
+# the repository secrets and variables it prints.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write  # OIDC: GitHub's token is exchanged for a short-lived Azure token of the deploy app registration
+
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Start Azurite, the Azure Storage emulator, for the Azure storage tests
+        # --skipApiVersionCheck: the Blob SDK sends a newer storage API version than Azurite knows
+        run: >-
+          docker run -d --rm -p 127.0.0.1:10000:10000 -p 127.0.0.1:10002:10002
+          mcr.microsoft.com/azure-storage/azurite:3.37.0@sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5
+          azurite --blobHost 0.0.0.0 --tableHost 0.0.0.0 --inMemoryPersistence --skipApiVersionCheck
+
+      - name: Set up uv and Python 3.13
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+        with:
+          version: "0.11.26"
+          python-version: "3.13"
+          activate-environment: "true"
+
+      - name: Install the locked dependencies
+        run: uv pip sync requirements.txt requirements-dev.txt
+
+      - name: Run the tests
+        env:
+          LOG_TO_FILE: "false"
+          REQUIRE_AZURITE: "1"  # without Azurite, the Azure storage tests fail instead of being skipped
+        run: python -m pytest -q -W error
+
+  deploy:
+    name: Build the image and deploy it to Container Apps
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_NAME: ${{ vars.APP_NAME }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      CORS_ALLOW_ORIGINS: ${{ vars.CORS_ALLOW_ORIGINS }}
+    steps:
+      - name: Check the repository variables
+        run: |
+          for name in APP_NAME AZURE_RESOURCE_GROUP CORS_ALLOW_ORIGINS; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository variable $name is not set; infra/azure/setup.ps1 prints the values"
+              exit 1
+            fi
+          done
+          if [[ "$CORS_ALLOW_ORIGINS" == *,* ]]; then
+            echo "::error::CORS_ALLOW_ORIGINS must list the frontend's origins separated by spaces, not commas"
+            exit 1
+          fi
+
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Sign in to Azure as the deploy app registration
+        # The three IDs are repository secrets, so the logs show *** wherever they appear, resource IDs included
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906  # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_DEPLOY_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Read the names setup.ps1 gave the resources
+        # The outputs of infra/azure/main.bicep's deployment, which setup.ps1 names after the app
+        run: |
+          outputs=$(az deployment group show --resource-group "$AZURE_RESOURCE_GROUP" --name "$APP_NAME" \
+                      --query properties.outputs --output json)
+          output() { jq -er --arg name "$1" '.[$name].value' <<< "$outputs"; }  # fails if the output is missing
+          registry=$(output registryName)
+          login_server=$(output registryLoginServer)
+          identity_id=$(output identityId)
+          identity_client_id=$(output identityClientId)
+          environment_id=$(output environmentId)
+          storage_account=$(output storageAccount)
+          keyvault_url=$(output keyVaultUrl)
+          {
+            echo "CONTAINER_APP=$APP_NAME-api"
+            echo "REGISTRY=$registry"
+            echo "LOGIN_SERVER=$login_server"
+            echo "IMAGE=$login_server/$APP_NAME-api:$GITHUB_SHA"
+            echo "IDENTITY_ID=$identity_id"
+            echo "IDENTITY_CLIENT_ID=$identity_client_id"
+            echo "ENVIRONMENT_ID=$environment_id"
+            echo "STORAGE_ACCOUNT=$storage_account"
+            echo "KEYVAULT_URL=$keyvault_url"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and push the image
+        # The same Dockerfile as the Lambda deploy; the Lambda Web Adapter in it only runs on Lambda
+        run: |
+          az acr login --name "$REGISTRY"
+          docker build --platform linux/amd64 --provenance=false --sbom=false --tag "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Create or update the Container App
+        run: |
+          # The whole environment is written on every deploy, as on Lambda, so a change made in the portal lasts until
+          # the next deploy. AZURE_CLIENT_ID names the app's managed identity, which signs in to storage and Key Vault.
+          env_vars=(
+            CLOUD_PROVIDER=azure SECRET_BACKEND=azure_keyvault LOG_TO_FILE=false
+            "AZURE_CLIENT_ID=$IDENTITY_CLIENT_ID" "AZURE_KEYVAULT_URL=$KEYVAULT_URL" "AZURE_STORAGE_ACCOUNT=$STORAGE_ACCOUNT"
+            AZURE_BLOB_CONTAINER=uploads AZURE_RECORDS_TABLE=receipts AZURE_QUOTA_TABLE=uploadcounts
+            "CORS_ALLOW_ORIGINS=$CORS_ALLOW_ORIGINS" "APP_REVISION=$GITHUB_SHA"
+          )
+          # Scales to zero when idle, so the first request after a quiet spell waits for a replica to start
+          settings=(--cpu 0.5 --memory 1.0Gi --min-replicas 0 --max-replicas 1)
+          app=(--resource-group "$AZURE_RESOURCE_GROUP" --name "$CONTAINER_APP")
+          if az containerapp show "${app[@]}" > /dev/null 2>&1; then
+            az containerapp update "${app[@]}" --image "$IMAGE" "${settings[@]}" --replace-env-vars "${env_vars[@]}" > /dev/null
+          else
+            # CORS is handled by FastAPI, so the ingress's own CORS setting stays off. The app pulls its image as its
+            # managed identity, so the registry needs no password.
+            az containerapp create "${app[@]}" --environment "$ENVIRONMENT_ID" --image "$IMAGE" \
+              --user-assigned "$IDENTITY_ID" --registry-server "$LOGIN_SERVER" --registry-identity "$IDENTITY_ID" \
+              --ingress external --target-port 8000 "${settings[@]}" --env-vars "${env_vars[@]}" > /dev/null
+          fi
+          fqdn=$(az containerapp show "${app[@]}" --query properties.configuration.ingress.fqdn --output tsv)
+          echo "API_URL=https://$fqdn" >> "$GITHUB_ENV"
+
+      - name: Check that the new revision answers
+        # A replica may first have to start and pull the image, so this waits up to 3 minutes
+        run: |
+          for _ in $(seq 1 36); do
+            if curl -fsS --max-time 60 "$API_URL/health" | jq -e --arg revision "$GITHUB_SHA" '.revision == $revision' > /dev/null; then
+              {
+                echo "### Deployed \`$GITHUB_SHA\`"
+                echo "API URL (for the frontend's \`NEXT_PUBLIC_API_URL\`): $API_URL"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$API_URL/health didn't report revision $GITHUB_SHA within 3 minutes"
+          exit 1
