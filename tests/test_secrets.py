@@ -2,9 +2,11 @@ import os
 from unittest.mock import patch, MagicMock
 
 import boto3
+from azure.core.exceptions import ResourceNotFoundError
 
 from backend.secrets import (
     AWSSecretProvider,
+    AzureKeyVaultSecretProvider,
     KeyringSecretProvider,
     EnvSecretProvider,
     CompositeSecretProvider,
@@ -79,3 +81,39 @@ def test_aws_secret_provider_reads_the_app_prefixed_secret(aws):
 
     assert provider.get("GOOGLE_API_KEY") == "app-key"
     assert provider.get("GROQ_API_KEY") is None  # missing: logged, and the composite falls back to the environment
+
+
+class FakeSecretClient:
+    """Stands in for Key Vault's SecretClient: holds `secrets` by their Key Vault names and records every lookup."""
+
+    def __init__(self, secrets: dict[str, str]):
+        self.secrets = secrets
+        self.names: list[str] = []
+
+    def get_secret(self, name: str):
+        self.names.append(name)
+        if name not in self.secrets:
+            raise ResourceNotFoundError(f"Secret {name} not found")
+        return MagicMock(value=self.secrets[name])
+
+
+def test_azure_key_vault_provider_reads_the_hyphenated_name_from_its_vault(monkeypatch):
+    """Verify AzureKeyVaultSecretProvider asks its vault for GOOGLE-API-KEY: Key Vault names can't contain underscores."""
+    client = FakeSecretClient({"GOOGLE-API-KEY": "app-key"})
+    vaults = []
+    monkeypatch.setattr("azure.keyvault.secrets.SecretClient",
+                        lambda vault_url, credential: vaults.append(vault_url) or client)
+
+    provider = AzureKeyVaultSecretProvider(vault_url="https://docai-test.vault.azure.net/")
+
+    assert provider.get("GOOGLE_API_KEY") == "app-key"
+    assert provider.get("GROQ_API_KEY") is None  # missing: logged, and the composite falls back to the environment
+    assert client.names == ["GOOGLE-API-KEY", "GROQ-API-KEY"]
+    assert vaults == ["https://docai-test.vault.azure.net/"]  # one client, built on first use
+
+
+def test_azure_key_vault_provider_without_a_vault_url_finds_nothing(monkeypatch):
+    """Verify an empty AZURE_KEYVAULT_URL skips Key Vault, so the composite falls back to the environment."""
+    monkeypatch.setattr("backend.secrets.AZURE_KEYVAULT_URL", "")
+
+    assert AzureKeyVaultSecretProvider().get("GOOGLE_API_KEY") is None

@@ -1,18 +1,23 @@
 import boto3
 import pytest
+from azure.core.exceptions import ResourceNotFoundError
+from azure.storage.blob import BlobServiceClient
 
 from backend.storage.base import FileStorage
+from backend.storage.blob import BlobFileStorage
 from backend.storage.local import LocalFileStorage
 from backend.storage.s3 import S3FileStorage
 
 
-@pytest.fixture(params=["local", "s3"])
+@pytest.fixture(params=["local", "s3", "blob"])
 def storage(request, tmp_path) -> FileStorage:
-    # Every FileStorage must pass the tests that use this fixture; Phase 7 adds Blob Storage here
+    # Every FileStorage must pass the tests that use this fixture
     if request.param == "local":
         return LocalFileStorage(tmp_path / "uploads")
     if request.param == "s3":
         return S3FileStorage(request.getfixturevalue("s3_bucket"))  # in moto's S3, from conftest.py
+    if request.param == "blob":  # in Azurite, from conftest.py
+        return BlobFileStorage(request.getfixturevalue("blob_container"), connection_string=request.getfixturevalue("azurite"))
 
 
 def test_upload_then_download_returns_the_same_bytes(storage):
@@ -61,3 +66,18 @@ def test_s3_storage_keeps_each_file_as_an_object_named_by_its_key(s3_bucket):
     S3FileStorage(s3_bucket).upload("receipts/abc.pdf", b"x")
 
     assert boto3.client("s3").get_object(Bucket=s3_bucket, Key="receipts/abc.pdf")["Body"].read() == b"x"
+
+
+def test_blob_storage_keeps_each_file_as_a_blob_named_by_its_key(azurite, blob_container):
+    BlobFileStorage(blob_container, connection_string=azurite).upload("receipts/abc.pdf", b"x")
+
+    container = BlobServiceClient.from_connection_string(azurite).get_container_client(blob_container)
+    assert container.download_blob("receipts/abc.pdf").readall() == b"x"
+
+
+def test_blob_storage_without_its_container_raises_instead_of_reporting_a_missing_file(azurite):
+    # A missing container is a misconfiguration: the API must answer 500, not 404 for every receipt's original
+    storage = BlobFileStorage("no-such-container", connection_string=azurite)
+
+    with pytest.raises(ResourceNotFoundError):
+        storage.download("receipts/abc.pdf")

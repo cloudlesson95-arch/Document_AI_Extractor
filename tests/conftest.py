@@ -1,8 +1,13 @@
 import datetime
+import os
+import socket
+import uuid
 from decimal import Decimal
 
 import boto3
 import pytest
+from azure.data.tables import TableServiceClient
+from azure.storage.blob import BlobServiceClient
 from fastapi.testclient import TestClient
 from moto import mock_aws
 
@@ -68,6 +73,48 @@ def records_table(aws) -> str:
 @pytest.fixture
 def quota_table(aws) -> str:
     return create_dynamodb_table("test-upload-counts", "day")
+
+
+# Azurite, Azure's storage emulator, on its default ports; this connection string needs no account key
+AZURITE = "UseDevelopmentStorage=true"
+AZURITE_COMMAND = (
+    "docker run -d --rm -p 127.0.0.1:10000:10000 -p 127.0.0.1:10002:10002 mcr.microsoft.com/azure-storage/azurite:3.37.0 "
+    "azurite --blobHost 0.0.0.0 --tableHost 0.0.0.0 --inMemoryPersistence --skipApiVersionCheck"
+)
+
+
+@pytest.fixture(scope="session")
+def azurite() -> str:
+    """Azurite's connection string. Without Azurite, its tests are skipped, or fail where REQUIRE_AZURITE is set (CI)."""
+    for port in (10000, 10002):  # Blob and Table Storage
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=1).close()
+        except OSError:
+            message = f"Azurite isn't running on 127.0.0.1:{port}; start it with: {AZURITE_COMMAND}"
+            if os.getenv("REQUIRE_AZURITE"):
+                pytest.fail(message)
+            pytest.skip(message)
+    return AZURITE
+
+
+@pytest.fixture
+def blob_container(azurite) -> str:
+    """An empty container in Azurite, deleted after the test."""
+    service = BlobServiceClient.from_connection_string(azurite)
+    name = f"test-{uuid.uuid4().hex}"
+    service.create_container(name)
+    yield name
+    service.delete_container(name)
+
+
+@pytest.fixture
+def azure_table(azurite) -> str:
+    """An empty table in Azurite, deleted after the test."""
+    service = TableServiceClient.from_connection_string(azurite)
+    name = f"test{uuid.uuid4().hex}"  # letters and digits only
+    service.create_table(name)
+    yield name
+    service.delete_table(name)
 
 
 class FakeExtractor(VisionExtractor):

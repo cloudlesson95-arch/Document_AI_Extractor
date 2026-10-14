@@ -5,20 +5,25 @@ from decimal import Decimal
 
 import boto3
 import pytest
+from azure.core.exceptions import ResourceNotFoundError
+from azure.data.tables import TableServiceClient
 from pydantic import ValidationError
 
 from backend.records.base import ReceiptRecord, RecordFilters, RecordStore
 from backend.records.dynamo import DynamoDBRecordStore
 from backend.records.local import SQLiteRecordStore
+from backend.records.table import TableRecordStore
 
 
-@pytest.fixture(params=["sqlite", "dynamodb"])
+@pytest.fixture(params=["sqlite", "dynamodb", "table"])
 def store(request, tmp_path) -> RecordStore:
-    # Every RecordStore must pass the tests that use this fixture; Phase 7 adds Table Storage here
+    # Every RecordStore must pass the tests that use this fixture
     if request.param == "sqlite":
         return SQLiteRecordStore(tmp_path / "receipts.db")
     if request.param == "dynamodb":
         return DynamoDBRecordStore(request.getfixturevalue("records_table"))  # in moto's DynamoDB, from conftest.py
+    if request.param == "table":  # in Azurite, from conftest.py
+        return TableRecordStore(request.getfixturevalue("azure_table"), connection_string=request.getfixturevalue("azurite"))
 
 
 def make_record(**overrides) -> ReceiptRecord:
@@ -170,6 +175,16 @@ def test_update_of_an_unknown_id_returns_none(store):
     assert store.update("no-such-id", {"vendor": "X"}) is None
 
 
+@pytest.mark.parametrize("record_id", ["a/b", "a\\b", "a#b", "a?b", "a\tb", "x" * 600],
+                         ids=["slash", "backslash", "hash", "question-mark", "tab", "600-chars"])
+def test_an_id_that_cant_be_a_storage_key_is_not_found(store, record_id):
+    # The API passes ids from the URL as they are; Table Storage refuses these characters and keys over 1 KiB
+    store.put(make_record())
+
+    assert store.get(record_id) is None
+    assert store.update(record_id, {"vendor": "X"}) is None
+
+
 def test_sqlite_records_persist_across_store_instances(tmp_path):
     record = make_record()
     SQLiteRecordStore(tmp_path / "receipts.db").put(record)
@@ -203,3 +218,21 @@ def test_dynamodb_items_hold_the_record_as_json_and_copies_of_its_set_filter_fie
     assert item["total_amount"] == {"N": "12345678901234567.01"}  # exact, where a float would round it
     assert item["category"] == {"S": "Meals"}
     assert "date" not in item  # null fields are left out, so no filter on them matches
+
+
+def test_table_entities_hold_the_record_as_json_in_one_partition(azurite, azure_table):
+    record = make_record(vendor="Café Uno", total_amount=Decimal("12345678901234567.01"), category="Meals")
+    TableRecordStore(azure_table, connection_string=azurite).put(record)
+
+    table = TableServiceClient.from_connection_string(azurite).get_table_client(azure_table)
+    entity = table.get_entity("receipt", record.id)
+
+    assert ReceiptRecord.model_validate_json(entity["data"]) == record  # exact, where a float would round the total
+
+
+def test_table_store_without_its_table_raises_instead_of_reporting_a_missing_record(azurite):
+    # A missing table is a misconfiguration: the API must answer 500, not 404 for every receipt
+    store = TableRecordStore("nosuchtable", connection_string=azurite)
+
+    with pytest.raises(ResourceNotFoundError):
+        store.get("abc")

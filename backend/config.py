@@ -59,3 +59,13 @@ SQLITE_PATH = Path(os.getenv("SQLITE_PATH", BASE_DIR / "data" / "receipts.db"))
 S3_BUCKET = os.getenv("S3_BUCKET", "")
 DYNAMODB_RECORDS_TABLE = os.getenv("DYNAMODB_RECORDS_TABLE", "")
 DYNAMODB_QUOTA_TABLE = os.getenv("DYNAMODB_QUOTA_TABLE", "")
+
+# Azure storage (CLOUD_PROVIDER=azure). The app signs in with DefaultAzureCredential: the Container App's managed identity
+# (named by AZURE_CLIENT_ID) when deployed, or `az login` locally. The Gemini key is read with
+# SECRET_BACKEND=azure_keyvault from AZURE_KEYVAULT_URL.
+AZURE_STORAGE_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT", "")  # the account's name; its Blob and Table endpoints follow
+AZURE_BLOB_CONTAINER = os.getenv("AZURE_BLOB_CONTAINER", "")
+AZURE_RECORDS_TABLE = os.getenv("AZURE_RECORDS_TABLE", "")
+AZURE_QUOTA_TABLE = os.getenv("AZURE_QUOTA_TABLE", "")
+# Azurite (the storage emulator) only: "UseDevelopmentStorage=true" replaces AZURE_STORAGE_ACCOUNT and the identity
+AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
