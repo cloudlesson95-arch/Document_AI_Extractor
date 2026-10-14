@@ -20,3 +20,9 @@ google-genai
 
 # AWS: S3, DynamoDB and Secrets Manager (CLOUD_PROVIDER=aws)
 boto3
+
+# Azure: Blob Storage, Table Storage and Key Vault (CLOUD_PROVIDER=azure), signed in with the app's managed identity
+azure-identity
+azure-storage-blob
+azure-data-tables
+azure-keyvault-secrets
