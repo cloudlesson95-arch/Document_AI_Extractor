@@ -4,7 +4,7 @@ Upload a photo or PDF of a receipt or invoice, and a vision-capable model extrac
 
 Storage, the database and the extraction model each sit behind a small interface, and one setting, `CLOUD_PROVIDER`, selects the implementation: `local`, `aws` or `azure`.
 
-> 🚧 Work in progress: Phases 0–6 (scaffold, extraction, storage, API, frontend, categorization, AWS deployment) are done; Phase 7 (Azure) is built and being deployed.
+> Status: Phases 0–7 (scaffold, extraction, storage, API, frontend, categorization, AWS and Azure deployment) are done. The AWS deployment is live; the Azure one was deployed, checked end to end and torn down, and the scripts below deploy it again.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ Next.js (web/) ──HTTP──▶ FastAPI (backend/)
 | 4. Frontend | ✅ Done | An upload page that shrinks photos in the browser, a searchable receipts table, and a review page showing the original next to the editable fields |
 | 5. Categorization | ✅ Done | A TF-IDF and logistic-regression classifier suggests an expense category from the vendor and line items; receipts it isn't confident about stay uncategorized. It's trained with scikit-learn and exported to `model.json`, which the app scores in plain Python |
 | 6. AWS | ✅ Done | S3 and DynamoDB implementations, the Gemini key in Secrets Manager, and a daily upload limit shared by every instance; the backend on Lambda (container image) behind a Function URL, deployed by a GitHub Actions workflow, and the frontend on Vercel |
-| 7. Azure | 🚧 In progress | Blob Storage and Table Storage implementations, tested on the Azurite emulator, and the Gemini key in Key Vault; the same image on Container Apps, signed in to storage and Key Vault with its managed identity, deployed by a second GitHub Actions workflow |
+| 7. Azure | ✅ Done | Blob Storage and Table Storage implementations, tested on the Azurite emulator, and the Gemini key in Key Vault; the same image on Container Apps, signed in to storage and Key Vault with its managed identity, deployed by a second GitHub Actions workflow |
 
 ## Local setup
 
@@ -145,7 +145,7 @@ The backend runs on AWS Lambda as a container image behind a public Function URL
 
 ## Deploy to Azure
 
-The same backend image runs on Azure Container Apps, with Blob Storage, Table Storage and the Gemini key in Key Vault. The app signs in to all three, and pulls its image, with its own managed identity, so no storage key, registry password or connection string exists. You need the Azure CLI signed in (`az login`) to a subscription where you can create resources and role assignments; a Free Trial works, since the model is Gemini. Everything goes into one resource group, `docai-rg`.
+The same backend image runs on Azure Container Apps, with Blob Storage, Table Storage and the Gemini key in Key Vault. The app signs in to all three, and pulls its image, with its own managed identity, so no storage key, registry password or connection string exists. You need the Azure CLI signed in (`az login`) to a subscription where you can create resources and role assignments; a Free Trial works, since the model is Gemini. Everything goes into one resource group, `docai-rg`, in `eastus` unless you pass `-Location <region>` to `setup.ps1` (then pass it on every rerun).
 
 1. **Azure resources, roles and the GitHub sign-in**, once (safe to rerun):
    ```powershell
@@ -156,7 +156,7 @@ The same backend image runs on Azure Container Apps, with Blob Storage, Table St
 3. **Backend**: Actions → *Deploy to Azure* → Run workflow, on `main`. It runs the tests, builds and pushes the image, creates or updates the Container App, and checks that `/health` reports the new commit; its summary shows the API URL.
 4. **Check**: `curl.exe <API URL>/health` reports `"cloud_provider":"azure"`. To use the frontend with it, set `NEXT_PUBLIC_API_URL=<API URL>` in `web/.env.local` and run `npm run dev`: `http://localhost:3000` is one of the allowed origins.
 
-The app scales to zero when idle, so the first request after a quiet spell waits while it starts. The container registry is billed per day while it exists.
+The app scales to zero when idle, so the first request after a quiet spell waits while it starts (about 20 s). The container registry is billed per day while it exists.
 
 `.\infra\azure\teardown.ps1` deletes the resource group with everything in it, purges its key vault, and deletes the GitHub sign-in, after asking.
 
